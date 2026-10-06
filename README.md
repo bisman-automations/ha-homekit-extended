@@ -35,6 +35,8 @@ Assistant. Or add it by hand:
    **Integration**.
 3. Install **HomeKit Extended**, then restart Home Assistant.
 
+Requires Home Assistant 2025.3 or later.
+
 ### Manual
 
 Copy `custom_components/homekit_extended` into your Home Assistant

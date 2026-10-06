@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name, the suffix is kept. The option is off by default, and turning it on
   doesn't require pairing again.
 
+### Fixed
+- The minimum Home Assistant version is now 2025.3, which 1.1.0 already needed.
+  HACS offered 1.1.0 to 2025.1 and 2025.2, where it failed to load.
+
 ## [1.1.0] - 2026-10-06
 
 ### Added
