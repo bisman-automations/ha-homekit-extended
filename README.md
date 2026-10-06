@@ -17,6 +17,11 @@ Apple Home separately.
 
 ### HACS
 
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=homekit-extended&category=integration)
+
+Click the button above, then install **HomeKit Extended** and restart Home
+Assistant. Or add it by hand:
+
 1. In HACS, open the menu and choose **Custom repositories**.
 2. Add `https://github.com/bisman-automations/homekit-extended` with the category
    **Integration**.
