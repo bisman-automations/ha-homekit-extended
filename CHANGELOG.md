@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-06
+
+### Added
+- **Accessory information** can now be changed: the manufacturer, model,
+  serial number and firmware that Apple Home shows under an accessory's details.
+  - If you pick a device during setup, these are filled in from that device;
+    firmware such as `v3.2.1-beta` becomes `3.2.1`.
+  - Change them later under **Configure → Accessory information**. Changes
+    apply right away, without pairing again.
+  - Empty fields use the defaults: "HomeKit Extended", the accessory type, a
+    unique ID and the integration's version.
+  - HomeKit rules are checked: firmware must look like 1, 1.2 or 1.2.3; the
+    serial number needs at least 2 characters; each field is limited to 64
+    characters.
+  - "HomeKit Certified" can't be changed. Apple shows Yes only for certified
+    hardware.
+
 ## [1.2.0] - 2026-10-06
 
 ### Added
@@ -110,6 +127,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.2.0
 [1.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.1.0
 [1.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.0.0

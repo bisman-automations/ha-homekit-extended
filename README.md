@@ -67,6 +67,9 @@ sensor, so you can see at a glance which ones are added to Apple Home. Choose
 - **Entities.** Change which entities the accessory mirrors.
 - **Run times** (irrigation and shower). Set each zone's run time. This applies
   right away, without re-pairing.
+- **Accessory information.** Set the manufacturer, model, serial number and
+  firmware shown in Apple Home. These are filled in from the device you picked
+  during setup, and changes apply without re-pairing.
 - **Port and pairing code.**
 - **Pairing.** Show the QR code again, or reset pairing so the accessory can be
   added to a different home.
