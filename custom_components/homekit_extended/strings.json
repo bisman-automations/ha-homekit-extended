@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HomeKit Extended",
+        "description": "Choose the kind of HomeKit accessory to publish.",
+        "menu_options": {
+          "air_purifier": "Air purifier",
+          "irrigation": "Irrigation system"
+        }
+      },
+      "air_purifier": {
+        "title": "Air purifier",
+        "description": "Publish a fan and optional sensors as one HomeKit Air Purifier accessory.",
+        "data": {
+          "name": "Name",
+          "port": "HomeKit port",
+          "pin": "Pairing code",
+          "fan": "Fan",
+          "air_quality_sensor": "Air quality sensor",
+          "pm25_sensor": "PM2.5 sensor",
+          "humidity_sensor": "Humidity sensor",
+          "temperature_sensor": "Temperature sensor",
+          "filter_life_sensor": "Filter life sensor"
+        },
+        "data_description": {
+          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
+          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
+          "fan": "Controls purifier power, speed, oscillation and auto mode (a preset named \"auto\").",
+          "air_quality_sensor": "A HomeKit 1-5 quality value or an AQI-style value.",
+          "pm25_sensor": "PM2.5 density in µg/m³. Used to estimate air quality when no air quality sensor is set.",
+          "filter_life_sensor": "Remaining filter life in percent. HomeKit asks for a replacement at 10% or less."
+        }
+      },
+      "irrigation": {
+        "title": "Irrigation system",
+        "description": "Publish valves as the zones of one HomeKit Irrigation System accessory.",
+        "data": {
+          "name": "Name",
+          "port": "HomeKit port",
+          "pin": "Pairing code",
+          "valves": "Zone valves",
+          "default_duration": "Default run time"
+        },
+        "data_description": {
+          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
+          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
+          "valves": "Each valve becomes a zone of one Irrigation System accessory.",
+          "default_duration": "How long a zone runs when started from Apple Home, up to 3600 seconds. The valve closes automatically when it ends. Can be changed per zone in Apple Home."
+        }
+      }
+    },
+    "error": {
+      "invalid_pin": "Use the format 123-45-678. Repeated digits, 123-45-678 and 876-54-321 are not allowed by HomeKit.",
+      "port_in_use": "This port is already used by another HomeKit accessory or bridge.",
+      "no_valves_selected": "Select at least one valve."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "{title}",
+        "description": "Changing the port or pairing code, or adding or removing services, may require removing and re-adding the accessory in Apple Home.",
+        "data": {
+          "port": "HomeKit port",
+          "pin": "Pairing code",
+          "fan": "Fan",
+          "air_quality_sensor": "Air quality sensor",
+          "pm25_sensor": "PM2.5 sensor",
+          "humidity_sensor": "Humidity sensor",
+          "temperature_sensor": "Temperature sensor",
+          "filter_life_sensor": "Filter life sensor",
+          "valves": "Zone valves",
+          "default_duration": "Default run time"
+        },
+        "data_description": {
+          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
+          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
+          "fan": "Controls purifier power, speed, oscillation and auto mode (a preset named \"auto\").",
+          "air_quality_sensor": "A HomeKit 1-5 quality value or an AQI-style value.",
+          "pm25_sensor": "PM2.5 density in µg/m³. Used to estimate air quality when no air quality sensor is set.",
+          "filter_life_sensor": "Remaining filter life in percent. HomeKit asks for a replacement at 10% or less.",
+          "valves": "Each valve becomes a zone of one Irrigation System accessory.",
+          "default_duration": "How long a zone runs when started from Apple Home, up to 3600 seconds. The valve closes automatically when it ends. Can be changed per zone in Apple Home."
+        }
+      }
+    },
+    "error": {
+      "invalid_pin": "Use the format 123-45-678. Repeated digits, 123-45-678 and 876-54-321 are not allowed by HomeKit.",
+      "port_in_use": "This port is already used by another HomeKit accessory or bridge.",
+      "no_valves_selected": "Select at least one valve."
+    }
+  }
+}
