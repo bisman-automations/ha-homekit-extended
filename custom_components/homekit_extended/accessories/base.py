@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 import logging
+import re
 from typing import Any
 
 from pyhap.accessory import Accessory
@@ -26,7 +27,14 @@ from homeassistant.core import (
 from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
 from homeassistant.helpers.event import async_track_state_change_event
 
-from ..const import MANUFACTURER, VERSION
+from ..const import (
+    CONF_FIRMWARE,
+    CONF_MANUFACTURER,
+    CONF_MODEL,
+    CONF_SERIAL,
+    MANUFACTURER,
+    VERSION,
+)
 from ..helpers import to_float
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +73,44 @@ class AccessoryType:
     entity_keys: tuple[str, ...] = field(default=())
     # Config key of the valves that get their own run times, if any.
     zones_key: str | None = None
+
+
+INFO_KEYS = (CONF_MANUFACTURER, CONF_MODEL, CONF_SERIAL, CONF_FIRMWARE)
+INFO_CHARS = {
+    CONF_MANUFACTURER: "Manufacturer",
+    CONF_MODEL: "Model",
+    CONF_SERIAL: "SerialNumber",
+    CONF_FIRMWARE: "FirmwareRevision",
+}
+# Options a running accessory applies without re-publishing (they only change
+# characteristic values, never the accessory's structure).
+IN_PLACE_KEYS = frozenset({*INFO_KEYS, "run_times", "disabled_zones"})
+# HomeKit requires a numeric firmware version: 1, 1.2 or 1.2.3.
+FIRMWARE_RE = re.compile(r"^\d+(\.\d+){0,2}$")
+MAX_INFO_LENGTH = 64
+
+
+def firmware_version(raw: Any) -> str | None:
+    """Return the leading HomeKit-valid version in a string, if any.
+
+    "1.2.3-beta" -> "1.2.3", "v2.0" -> "2.0", "2026.10.1.4" -> "2026.10.1".
+    """
+    match = re.search(r"\d+(\.\d+){0,2}", str(raw or ""))
+    return match.group(0) if match else None
+
+
+def accessory_info(data: dict[str, Any], model: str, serial: str) -> dict[str, str]:
+    """Accessory information to publish, falling back to defaults."""
+    defaults = {
+        CONF_MANUFACTURER: MANUFACTURER,
+        CONF_MODEL: model,
+        CONF_SERIAL: serial,
+        CONF_FIRMWARE: VERSION,
+    }
+    return {
+        key: str(data.get(key) or default)[:MAX_INFO_LENGTH]
+        for key, default in defaults.items()
+    }
 
 
 # Selector helpers
@@ -178,12 +224,21 @@ class HomeAccessory(Accessory):
         self.entry = entry
         self.data: dict[str, Any] = {**entry.data, **entry.options}
         self._subscriptions: list[CALLBACK_TYPE] = []
+        self._default_model = model
+        info = accessory_info(self.data, model, entry.entry_id)
         self.set_info_service(
-            manufacturer=MANUFACTURER,
-            model=model,
-            serial_number=entry.entry_id,
-            firmware_revision=VERSION,
+            manufacturer=info[CONF_MANUFACTURER],
+            model=info[CONF_MODEL],
+            serial_number=info[CONF_SERIAL],
+            firmware_revision=info[CONF_FIRMWARE],
         )
+
+    def apply_in_place(self, config: dict[str, Any]) -> None:
+        """Update accessory information without re-publishing."""
+        info = accessory_info(config, self._default_model, self.entry.entry_id)
+        service = self.get_service("AccessoryInformation")
+        for key, char_name in INFO_CHARS.items():
+            service.get_characteristic(char_name).set_value(info[key])
 
     @property
     def name(self) -> str:

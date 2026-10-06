@@ -22,22 +22,35 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers import selector
+from homeassistant.helpers import device_registry as dr, selector
 
 from . import async_reset_pairing_state
 from .accessories import ACCESSORY_TYPES, AccessoryType
-from .accessories.base import device_entities, device_name
+from .accessories.base import (
+    FIRMWARE_RE,
+    INFO_KEYS,
+    MAX_INFO_LENGTH,
+    device_entities,
+    device_name,
+    firmware_version,
+)
 from .accessories.valves import run_times_form, zone_run_times
 from .const import (
     CONF_ACCESSORY_TYPE,
     CONF_CONNECTION,
     CONF_DEVICE,
+    CONF_FIRMWARE,
+    CONF_INFO,
+    CONF_MANUFACTURER,
+    CONF_MODEL,
     CONF_PIN,
     CONF_PLAIN_NAME,
     CONF_PORT,
     CONF_RUN_TIMES,
+    CONF_SERIAL,
     DEFAULT_PORT,
     DOMAIN,
+    VERSION,
 )
 from .helpers import generate_pin, validate_pin
 from .pairing import pairing_markdown
@@ -59,6 +72,37 @@ def _connection_fields() -> dict[vol.Marker, Any]:
         vol.Required(CONF_PIN): selector.TextSelector(),
         vol.Optional(CONF_PLAIN_NAME, default=False): selector.BooleanSelector(),
     }
+
+
+def _info_fields() -> dict[vol.Marker, Any]:
+    return {vol.Optional(key): selector.TextSelector() for key in INFO_KEYS}
+
+
+def _device_info(hass: HomeAssistant, device_id: str) -> dict[str, str]:
+    """Suggest accessory information from the device it represents."""
+    if (device := dr.async_get(hass).async_get(device_id)) is None:
+        return {}
+    suggested = {
+        CONF_MANUFACTURER: device.manufacturer,
+        CONF_MODEL: device.model,
+        CONF_SERIAL: device.serial_number,
+        CONF_FIRMWARE: firmware_version(device.sw_version),
+    }
+    return {key: str(value) for key, value in suggested.items() if value}
+
+
+def _validate_info(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
+    """Blank fields fall back to defaults; filled ones must suit HomeKit."""
+    data = {key: str(raw.get(key) or "").strip() or None for key in INFO_KEYS}
+    errors: dict[str, str] = {}
+    for key, value in data.items():
+        if value and len(value) > MAX_INFO_LENGTH:
+            errors[key] = "info_too_long"
+    if data[CONF_SERIAL] and len(data[CONF_SERIAL]) < 2:
+        errors[CONF_SERIAL] = "serial_too_short"
+    if data[CONF_FIRMWARE] and not FIRMWARE_RE.match(data[CONF_FIRMWARE]):
+        errors[CONF_FIRMWARE] = "invalid_firmware"
+    return data, errors
 
 
 def _used_ports(hass: HomeAssistant, exclude_entry_id: str | None = None) -> set[int]:
@@ -150,7 +194,10 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                 device_id = user_input.get(CONF_DEVICE)
                 if device_id:
                     entries = device_entities(self.hass, device_id)
-                    self._suggested = accessory_type.detect(self.hass, entries)
+                    self._suggested = {
+                        **accessory_type.detect(self.hass, entries),
+                        CONF_INFO: _device_info(self.hass, device_id),
+                    }
                 self._title = (
                     (user_input.get(CONF_NAME) or "").strip()
                     or (device_name(self.hass, device_id) if device_id else None)
@@ -193,17 +240,28 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
         assert self._type is not None
         errors: dict[str, str] = {}
         if user_input is not None:
-            data, errors = self._type.normalize(dict(user_input))
+            entity_input = dict(user_input)
+            info, info_errors = _validate_info(entity_input.pop(CONF_INFO, {}))
+            data, errors = self._type.normalize(entity_input)
+            errors = {**errors, **info_errors}
             if not errors:
                 self._data = {
                     CONF_ACCESSORY_TYPE: self._type.key,
                     **self._connection,
                     **data,
+                    **{key: value for key, value in info.items() if value},
                 }
                 if self._type.zones_key:
                     return await self.async_step_run_times()
                 return self.async_create_entry(title=self._title, data=self._data)
-        schema = vol.Schema(self._type.schema())
+        schema = vol.Schema(
+            {
+                **self._type.schema(),
+                vol.Required(CONF_INFO, default={}): section(
+                    vol.Schema(_info_fields()), {"collapsed": True}
+                ),
+            }
+        )
         return self.async_show_form(
             step_id="entities",
             data_schema=self.add_suggested_values_to_schema(
@@ -293,9 +351,9 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
         return self.async_show_menu(
             step_id="init",
             menu_options=(
-                ["entities", "run_times", "connection", "pairing"]
+                ["entities", "run_times", "info", "connection", "pairing"]
                 if self._type.zones_key
-                else ["entities", "connection", "pairing"]
+                else ["entities", "info", "connection", "pairing"]
             ),
             description_placeholders={"name": self.config_entry.title},
         )
@@ -347,6 +405,28 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
                 vol.Schema(schema), suggested
             ),
             description_placeholders={"name": self.config_entry.title},
+        )
+
+    async def async_step_info(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change what Apple Home shows under the accessory's details."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data, errors = _validate_info(user_input)
+            if not errors:
+                return self._save(data)
+        return self.async_show_form(
+            step_id="info",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(_info_fields()), user_input or self._current
+            ),
+            errors=errors,
+            description_placeholders={
+                "name": self.config_entry.title,
+                "model": self._type.model,
+                "version": VERSION,
+            },
         )
 
     async def async_step_connection(

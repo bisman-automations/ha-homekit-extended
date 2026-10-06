@@ -82,9 +82,6 @@ HK_VALVE_TYPES = {"irrigation": 1, "shower_head": 2, "faucet": 3}
 FAUCET_VALVE_TYPES = ("shower_head", "faucet")
 MASTER_DOMAINS = ["switch", "input_boolean", "valve"]
 
-# Options that apply to a running accessory without re-publishing it.
-IN_PLACE_KEYS = frozenset({CONF_RUN_TIMES, CONF_DISABLED_ZONES})
-
 
 def valve_entity_ids(raw: Any) -> list[str]:
     """Normalize stored valves (plain ids or legacy {"entity_id": ...} mappings)."""
@@ -383,7 +380,8 @@ class ValveGroupAccessory(HomeAccessory):
         self.hass.loop.call_soon_threadsafe(_save)
 
     def apply_in_place(self, config: dict[str, Any]) -> None:
-        """Apply run times and enabled zones without re-publishing."""
+        """Apply info, run times and enabled zones without re-publishing."""
+        super().apply_in_place(config)
         run_times = zone_run_times(config, self.valves)
         self.disabled_zones = set(config.get(CONF_DISABLED_ZONES) or [])
         for entity_id, zone in self._zones.items():

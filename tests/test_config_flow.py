@@ -39,6 +39,10 @@ def _sprinkler_device(hass: HomeAssistant) -> str:
         config_entry_id=source.entry_id,
         identifiers={("test", "controller")},
         name="Backyard Controller",
+        manufacturer="Hunter",
+        model="IQ4",
+        serial_number="5C4F8E",
+        sw_version="v3.2.1-beta",
     )
     registry = er.async_get(hass)
     for zone in ("front", "back"):
@@ -88,10 +92,21 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
     assert result["step_id"] == "entities"
     valves = next(k for k in result["data_schema"].schema if k == "valves")
     assert valves.description["suggested_value"] == ["valve.front", "valve.back"]
+    info = result["data_schema"].schema["accessory_info"].schema.schema
+    assert {str(k): k.description["suggested_value"] for k in info} == {
+        "manufacturer": "Hunter",
+        "model": "IQ4",
+        "serial_number": "5C4F8E",
+        "firmware": "3.2.1",
+    }
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"valves": ["valve.front", "valve.back"], "default_duration": 600},
+        {
+            "valves": ["valve.front", "valve.back"],
+            "default_duration": 600,
+            "accessory_info": {"manufacturer": "Hunter", "model": "IQ4"},
+        },
     )
     assert result["step_id"] == "run_times"
     labels = [str(k) for k in result["data_schema"].schema]
@@ -111,6 +126,8 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
         "default_duration": 600,
         "one_at_a_time": True,
         "master": None,
+        "manufacturer": "Hunter",
+        "model": "IQ4",
         "run_times": {"valve.front": 300, "valve.back": 1200},
     }
 
@@ -196,11 +213,17 @@ async def test_options_menu(hass: HomeAssistant) -> None:
         hass, "irrigation", valves=["valve.front"], default_duration=600
     )
     result = await hass.config_entries.options.async_init(irrigation.entry_id)
-    assert result["menu_options"] == ["entities", "run_times", "connection", "pairing"]
+    assert result["menu_options"] == [
+        "entities",
+        "run_times",
+        "info",
+        "connection",
+        "pairing",
+    ]
 
     strip = await setup_accessory(hass, "power_strip", port=51829, outlets=["switch.a"])
     result = await hass.config_entries.options.async_init(strip.entry_id)
-    assert result["menu_options"] == ["entities", "connection", "pairing"]
+    assert result["menu_options"] == ["entities", "info", "connection", "pairing"]
 
 
 async def test_options_run_times_apply_without_reload(hass: HomeAssistant) -> None:
@@ -281,3 +304,52 @@ def test_pins() -> None:
     assert all(validate_pin(generate_pin()) for _ in range(200))
     for bad in ("111-11-111", "123-45-678", "876-54-321", "12345678", "123-456-78"):
         assert not validate_pin(bad)
+
+
+async def test_options_accessory_info(hass: HomeAssistant) -> None:
+    """Accessory information is validated and applied without re-publishing."""
+    entry = await setup_accessory(hass, "power_strip", outlets=["switch.a"])
+    accessory = server(hass, entry.entry_id).accessory
+    info = accessory.get_service("AccessoryInformation")
+    assert info.get_characteristic("Manufacturer").value == "HomeKit Extended"
+    assert info.get_characteristic("SerialNumber").value == entry.entry_id
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "info"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"serial_number": "X", "firmware": "beta"}
+    )
+    assert result["errors"] == {
+        "serial_number": "serial_too_short",
+        "firmware": "invalid_firmware",
+    }
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "manufacturer": "Rachio",
+            "model": "Gen 3",
+            "serial_number": "RCH-1234",
+            "firmware": "4.1",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert server(hass, entry.entry_id).accessory is accessory  # applied live
+    assert info.get_characteristic("Manufacturer").value == "Rachio"
+    assert info.get_characteristic("Model").value == "Gen 3"
+    assert info.get_characteristic("SerialNumber").value == "RCH-1234"
+    assert info.get_characteristic("FirmwareRevision").value == "4.1"
+
+    # Clearing a field goes back to the default.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "info"}
+    )
+    await hass.config_entries.options.async_configure(
+        result["flow_id"], {"manufacturer": "", "model": "Gen 3"}
+    )
+    await hass.async_block_till_done()
+    assert info.get_characteristic("Manufacturer").value == "HomeKit Extended"
+    assert info.get_characteristic("SerialNumber").value == entry.entry_id

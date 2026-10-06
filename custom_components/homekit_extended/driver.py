@@ -133,10 +133,10 @@ class HomeKitAccessoryServer:
     def async_apply_in_place(self) -> bool:
         """Apply an entry update without re-publishing, when HomeKit allows it.
 
-        Run times and enabled zones are just characteristic values, so they
-        update live; anything else changes the accessory's structure.
+        Accessory info, run times and enabled zones are just characteristic
+        values, so they update live; anything else changes the structure.
         """
-        from .accessories.valves import IN_PLACE_KEYS
+        from .accessories.base import IN_PLACE_KEYS
 
         title, config = self._snapshot()
         old_title, old_config = self._published

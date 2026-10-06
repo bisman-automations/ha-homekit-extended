@@ -82,6 +82,24 @@
           "outlets": "Switches or input booleans, in outlet order.",
           "fan": "Speed, oscillation and direction are added when the fan supports them.",
           "light": "Brightness is added when the light supports it."
+        },
+        "sections": {
+          "accessory_info": {
+            "name": "Accessory information",
+            "description": "What Apple Home shows under the accessory's details. Filled in from the device you picked, if any.",
+            "data": {
+              "manufacturer": "Manufacturer",
+              "model": "Model",
+              "serial_number": "Serial number",
+              "firmware": "Firmware"
+            },
+            "data_description": {
+              "manufacturer": "Leave empty for \"HomeKit Extended\".",
+              "model": "Leave empty for the accessory type, such as \"HomeKit Extended Irrigation\".",
+              "serial_number": "Leave empty to use a unique ID for this accessory. At least 2 characters.",
+              "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use this integration's version."
+            }
+          }
         }
       },
       "irrigation": {
@@ -314,6 +332,9 @@
       "port_in_use": "Another HomeKit accessory or bridge in Home Assistant is set up to use this port.",
       "port_busy": "Something else on this host is already using this port, such as the old HomeKit Irrigation or Air Purifier integration. Pick another port or stop that service.",
       "no_valves_selected": "Select at least one valve.",
+      "serial_too_short": "Use at least 2 characters, or leave it empty.",
+      "invalid_firmware": "HomeKit only accepts versions like 1, 1.2 or 1.2.3.",
+      "info_too_long": "Use 64 characters or fewer.",
       "master_is_zone": "The pump or master valve can't also be a zone.",
       "no_buttons_selected": "Select at least one event entity.",
       "no_outlets_selected": "Select at least one switch.",
@@ -328,12 +349,14 @@
         "menu_options": {
           "entities": "Entities",
           "run_times": "Run times",
+          "info": "Accessory information",
           "connection": "Port and pairing code",
           "pairing": "Pairing"
         },
         "menu_option_descriptions": {
           "entities": "Change which entities the accessory mirrors.",
           "run_times": "Set how long each zone runs.",
+          "info": "Change the manufacturer, model, serial number and firmware shown in Apple Home.",
           "connection": "Change the HomeKit port or pairing code.",
           "pairing": "Show the pairing QR code, or reset pairing."
         }
@@ -397,6 +420,22 @@
         "title": "Run times for {name}",
         "description": "How long each zone runs when started from Apple Home, in seconds (up to 3600; 0 runs until stopped). Changes apply right away without re-pairing."
       },
+      "info": {
+        "title": "Accessory information for {name}",
+        "description": "What Apple Home shows under the accessory's details. Empty fields use the defaults: HomeKit Extended, {model}, a unique ID and version {version}. Changes apply right away. \"HomeKit Certified\" can't be changed; it's only Yes for devices certified by Apple.",
+        "data": {
+          "manufacturer": "Manufacturer",
+          "model": "Model",
+          "serial_number": "Serial number",
+          "firmware": "Firmware"
+        },
+        "data_description": {
+          "manufacturer": "Leave empty for \"HomeKit Extended\".",
+          "model": "Leave empty for the accessory type, such as \"HomeKit Extended Irrigation\".",
+          "serial_number": "Leave empty to use a unique ID for this accessory. At least 2 characters.",
+          "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use this integration's version."
+        }
+      },
       "connection": {
         "title": "Port and pairing code",
         "description": "Changes take effect right away. A new pairing code only matters when pairing again.",
@@ -427,6 +466,9 @@
       "port_in_use": "Another HomeKit accessory or bridge in Home Assistant is set up to use this port.",
       "port_busy": "Something else on this host is already using this port, such as the old HomeKit Irrigation or Air Purifier integration. Pick another port or stop that service.",
       "no_valves_selected": "Select at least one valve.",
+      "serial_too_short": "Use at least 2 characters, or leave it empty.",
+      "invalid_firmware": "HomeKit only accepts versions like 1, 1.2 or 1.2.3.",
+      "info_too_long": "Use 64 characters or fewer.",
       "master_is_zone": "The pump or master valve can't also be a zone.",
       "no_buttons_selected": "Select at least one event entity.",
       "no_outlets_selected": "Select at least one switch.",
