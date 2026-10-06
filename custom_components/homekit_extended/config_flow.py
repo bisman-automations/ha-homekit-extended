@@ -33,6 +33,7 @@ from .const import (
     CONF_CONNECTION,
     CONF_DEVICE,
     CONF_PIN,
+    CONF_PLAIN_NAME,
     CONF_PORT,
     CONF_RUN_TIMES,
     DEFAULT_PORT,
@@ -56,6 +57,7 @@ def _connection_fields() -> dict[vol.Marker, Any]:
     return {
         vol.Required(CONF_PORT): PORT_SELECTOR,
         vol.Required(CONF_PIN): selector.TextSelector(),
+        vol.Optional(CONF_PLAIN_NAME, default=False): selector.BooleanSelector(),
     }
 
 
@@ -99,6 +101,7 @@ async def _validate_connection(
     data = {
         CONF_PORT: int(user_input[CONF_PORT]),
         CONF_PIN: str(user_input[CONF_PIN]).strip(),
+        CONF_PLAIN_NAME: bool(user_input.get(CONF_PLAIN_NAME, False)),
     }
     errors: dict[str, str] = {}
     if not validate_pin(data[CONF_PIN]):

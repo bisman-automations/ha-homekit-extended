@@ -159,6 +159,11 @@ reset is available under **Configure → Pairing**.
   another accessory or bridge, including the old standalone integrations, or
   that something else on the host is listening on. If a port becomes busy
   later, the entry shows "Retrying setup" until the port is free.
+- **Shorter names when discovered.** By default an accessory is advertised as
+  "Irrigation System 8D111D": pyhap adds part of the accessory's ID so names
+  never clash. Turn on **Advertise without ID suffix** under Connection to
+  advertise just "Irrigation System". If another device already uses that name,
+  the suffix is kept.
 - **Networking follows Home Assistant.** Accessories are advertised on the
   interfaces chosen under **Settings → System → Network**.
 

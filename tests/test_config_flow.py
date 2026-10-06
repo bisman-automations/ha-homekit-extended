@@ -106,6 +106,7 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
         "accessory_type": "irrigation",
         "port": 51828,
         "pin": PIN,
+        "plain_name": False,
         "valves": ["valve.front", "valve.back"],
         "default_duration": 600,
         "one_at_a_time": True,

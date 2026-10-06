@@ -12,6 +12,7 @@ CONF_ACCESSORY_TYPE: Final = "accessory_type"
 CONF_CONNECTION: Final = "connection"
 CONF_DEVICE: Final = "device"
 CONF_PIN: Final = "pin"
+CONF_PLAIN_NAME: Final = "plain_name"
 CONF_PORT: Final = "port"
 
 # Entity fields

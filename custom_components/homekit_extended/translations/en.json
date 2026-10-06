@@ -101,11 +101,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -127,11 +129,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -153,11 +157,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -179,11 +185,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -205,11 +213,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -231,11 +241,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -257,11 +269,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -283,11 +297,13 @@
             "description": "Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
-              "pin": "Pairing code"
+              "pin": "Pairing code",
+              "plain_name": "Advertise without ID suffix"
             },
             "data_description": {
               "port": "Each accessory needs its own port. A free one is suggested.",
-              "pin": "8 digits as 123-45-678. A random code is suggested."
+              "pin": "8 digits as 123-45-678. A random code is suggested.",
+              "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
             }
           }
         }
@@ -386,11 +402,13 @@
         "description": "Changes take effect right away. A new pairing code only matters when pairing again.",
         "data": {
           "port": "HomeKit port",
-          "pin": "Pairing code"
+          "pin": "Pairing code",
+          "plain_name": "Advertise without ID suffix"
         },
         "data_description": {
           "port": "Each accessory needs its own port. A free one is suggested.",
-          "pin": "8 digits as 123-45-678. A random code is suggested."
+          "pin": "8 digits as 123-45-678. A random code is suggested.",
+          "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
         }
       },
       "pairing": {

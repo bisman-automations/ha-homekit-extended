@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from zeroconf import NonUniqueNameException, ServiceInfo
 
 from custom_components.homekit_extended.const import DOMAIN
 from custom_components.homekit_extended.diagnostics import (
     async_get_config_entry_diagnostics,
 )
+from custom_components.homekit_extended.driver import PlainNameAdvertiser
 from custom_components.homekit_extended.pairing import notification_id
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -89,3 +92,87 @@ async def test_busy_port_retries_setup(hass: HomeAssistant, mock_hap_network) ->
     assert "51828" in entry.reason
     # The never-advertised driver must not be stopped (that used to crash).
     mock_hap_network["stop"].assert_not_awaited()
+
+
+class FakeZeroconf:
+    """Record registrations; reject names listed as taken."""
+
+    def __init__(self, taken: set[str] = frozenset()) -> None:
+        self.taken = taken
+        self.calls: list[tuple[str, str]] = []
+
+    async def async_register_service(self, info, **kwargs):
+        self.calls.append(("register", info.name))
+
+        async def _announce():
+            if info.name in self.taken:
+                raise NonUniqueNameException
+
+        return asyncio.ensure_future(_announce())
+
+    async def async_update_service(self, info, **kwargs):
+        self.calls.append(("update", info.name))
+
+    async def async_unregister_service(self, info, **kwargs):
+        self.calls.append(("unregister", info.name))
+
+    async def async_close(self):
+        self.calls.append(("close", ""))
+
+
+def _info(name: str) -> ServiceInfo:
+    return ServiceInfo(
+        "_hap._tcp.local.",
+        f"{name}._hap._tcp.local.",
+        port=51828,
+        properties={"md": "x"},
+        server="host.local.",
+        parsed_addresses=["192.168.1.2"],
+    )
+
+
+async def test_plain_name_advertising() -> None:
+    """The ID suffix is dropped consistently for register, update and unregister."""
+    inner = FakeZeroconf()
+    advertiser = PlainNameAdvertiser(inner)
+    info = _info("Irrigation System 8D111D")
+    await advertiser.async_register_service(info, cooperating_responders=True)
+    await advertiser.async_update_service(info)
+    await advertiser.async_unregister_service(info)
+    await advertiser.async_close()
+    plain = "Irrigation System._hap._tcp.local."
+    assert inner.calls == [
+        ("register", plain),
+        ("update", plain),
+        ("unregister", plain),
+        ("close", ""),
+    ]
+
+
+async def test_plain_name_falls_back_on_conflict() -> None:
+    """If the plain name is taken, pyhap's suffixed name is used throughout."""
+    inner = FakeZeroconf(taken={"Irrigation System._hap._tcp.local."})
+    advertiser = PlainNameAdvertiser(inner)
+    info = _info("Irrigation System 8D111D")
+    await advertiser.async_register_service(info)
+    await advertiser.async_unregister_service(info)
+    assert inner.calls[-2:] == [
+        ("register", info.name),
+        ("unregister", info.name),
+    ]
+
+
+async def test_plain_name_option_installs_advertiser(hass: HomeAssistant) -> None:
+    """The option swaps in the plain-name advertiser."""
+    entry = await setup_accessory(
+        hass, "power_strip", "Desk", outlets=["switch.a"], plain_name=True
+    )
+    assert isinstance(
+        server(hass, entry.entry_id).driver.advertiser, PlainNameAdvertiser
+    )
+    other = await setup_accessory(
+        hass, "power_strip", "Desk 2", 51829, outlets=["switch.b"]
+    )
+    assert not isinstance(
+        server(hass, other.entry_id).driver.advertiser, PlainNameAdvertiser
+    )

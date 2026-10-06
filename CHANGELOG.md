@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A zone shows a fault when its valve is unavailable.
 - Changing run times or enabled zones takes effect right away, without
   restarting the accessory.
+- **Advertise without ID suffix** option. The accessory is discovered as
+  "Irrigation System" instead of "Irrigation System 8D111D", and keeps the
+  suffix if the name is already taken.
 
 ### Changed
 - Turning the Irrigation System off now closes only the zones that are running.
