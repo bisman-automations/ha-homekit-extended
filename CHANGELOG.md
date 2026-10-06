@@ -110,6 +110,6 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
-[1.2.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.2.0
-[1.1.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.1.0
-[1.0.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.0.0
+[1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.2.0
+[1.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.1.0
+[1.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.0.0
