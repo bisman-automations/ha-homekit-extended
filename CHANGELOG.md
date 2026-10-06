@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-10-06
+
+### Fixed
+- The run-times screen no longer says every zone runs "up to 3600 seconds; 0
+  runs until stopped". It now lists which zones are set on the controller,
+  with the controller's real limits (for Rain Bird, 1 minute to 24 hours in
+  1-minute steps), and which zones are stored by HomeKit Extended.
+
 ## [1.4.0] - 2026-10-06
 
 ### Added
@@ -151,6 +159,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.2.0

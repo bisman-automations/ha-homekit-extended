@@ -212,3 +212,22 @@ async def test_controller_timers_can_be_turned_off(hass: HomeAssistant) -> None:
     assert not zone.links
     assert zone.set_duration.value == 120
     assert zone.set_duration.properties["maxValue"] == 3600
+
+
+async def test_run_times_screen_explains_sources(hass: HomeAssistant) -> None:
+    """The run-times screen names controller zones and their real limits."""
+    _rain_bird(hass)
+    hass.states.async_set("valve.plain", "closed", {"friendly_name": "Garden"})
+    entry = await setup_accessory(
+        hass, "irrigation", "Sprinklers", valves=[*VALVES, "valve.plain"]
+    )
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "run_times"}
+    )
+    details = result["description_placeholders"]["details"]
+    assert details == (
+        "**Set on the controller:** Front Lawn, Back Lawn."
+        " From 1 minute to 24 hours in 1 minute steps.\n\n"
+        "**Stored by HomeKit Extended:** Garden. Up to 1 hour; 0 runs until stopped."
+    )

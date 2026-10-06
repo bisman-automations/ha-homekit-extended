@@ -217,6 +217,47 @@ def run_times_form(
     return schema, labels, suggested
 
 
+def _human_duration(seconds: int) -> str:
+    """1 → "1 second", 60 → "1 minute", 86400 → "24 hours"."""
+    for size, unit in ((3600, "hour"), (60, "minute"), (1, "second")):
+        if seconds >= size and seconds % size == 0:
+            count = seconds // size
+            return f"{count} {unit}{'' if count == 1 else 's'}"
+    return f"{seconds} seconds"
+
+
+def run_times_details(
+    hass: HomeAssistant, valves: list[str], use_controller: bool = True
+) -> str:
+    """Explain which zones save to the controller and which are stored here."""
+    controller: dict[tuple[int, int, int] | None, list[str]] = {}
+    local: list[str] = []
+    for entity_id in valves:
+        links = find_zone_links(hass, entity_id) if use_controller else ZoneLinks()
+        name = friendly_name(hass, entity_id)
+        if links.duration:
+            limits = duration_limits(hass.states.get(links.duration))
+            controller.setdefault(limits, []).append(name)
+        else:
+            local.append(name)
+    parts: list[str] = []
+    for limits, names in controller.items():
+        text = f"**Set on the controller:** {', '.join(names)}."
+        if limits is not None:
+            low, high, step = limits
+            text += (
+                f" From {_human_duration(max(low, step))} to {_human_duration(high)}"
+                f" in {_human_duration(step)} steps."
+            )
+        parts.append(text)
+    if local:
+        parts.append(
+            f"**Stored by HomeKit Extended:** {', '.join(local)}."
+            f" Up to {_human_duration(MAX_DURATION)}; 0 runs until stopped."
+        )
+    return "\n\n".join(parts)
+
+
 async def async_save_run_times(
     hass: HomeAssistant,
     user_input: dict[str, Any],

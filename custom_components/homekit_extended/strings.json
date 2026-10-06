@@ -27,7 +27,7 @@
       },
       "run_times": {
         "title": "Run times for {name}",
-        "description": "How long each zone runs when started from Apple Home, in seconds (up to 3600; 0 runs until stopped). The valve closes by itself when the time is up. Run times changed in Apple Home are saved here too."
+        "description": "How long each zone runs when started from Apple Home, in seconds. Run times changed in Apple Home are saved too.\n\n{details}"
       },
       "entities": {
         "title": "Choose entities for {name}",
@@ -422,7 +422,7 @@
       },
       "run_times": {
         "title": "Run times for {name}",
-        "description": "How long each zone runs when started from Apple Home, in seconds (up to 3600; 0 runs until stopped). Changes apply right away without re-pairing."
+        "description": "How long each zone runs when started from Apple Home, in seconds. Changes apply right away without re-pairing.\n\n{details}"
       },
       "info": {
         "title": "Accessory information for {name}",

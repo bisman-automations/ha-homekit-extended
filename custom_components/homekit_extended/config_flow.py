@@ -34,7 +34,12 @@ from .accessories.base import (
     device_name,
     firmware_version,
 )
-from .accessories.valves import async_save_run_times, run_times_form, zone_run_times
+from .accessories.valves import (
+    async_save_run_times,
+    run_times_details,
+    run_times_form,
+    zone_run_times,
+)
 from .const import (
     CONF_ACCESSORY_TYPE,
     CONF_CONNECTION,
@@ -292,7 +297,10 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(schema), suggested
             ),
-            description_placeholders={"name": self._title},
+            description_placeholders={
+                "name": self._title,
+                "details": run_times_details(self.hass, valves, use_controller),
+            },
         )
 
     @staticmethod
@@ -400,7 +408,10 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(schema), suggested
             ),
-            description_placeholders={"name": self.config_entry.title},
+            description_placeholders={
+                "name": self.config_entry.title,
+                "details": run_times_details(self.hass, valves, use_controller),
+            },
         )
 
     async def async_step_info(
