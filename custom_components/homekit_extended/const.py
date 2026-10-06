@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "homekit_extended"
-VERSION: Final = "1.1.0"
+VERSION: Final = "1.2.0"
 MANUFACTURER: Final = "HomeKit Extended"
 
 CONF_ACCESSORY_TYPE: Final = "accessory_type"

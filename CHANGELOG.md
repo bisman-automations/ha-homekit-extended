@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-06
+
+### Added
+- **Advertise without ID suffix** connection option. An accessory is
+  discovered in Apple Home and Home Assistant as "Irrigation System" instead of
+  "Irrigation System 8D111D". If another device on the network already uses that
+  name, the suffix is kept. The option is off by default, and turning it on
+  doesn't require pairing again.
+
 ## [1.1.0] - 2026-10-06
 
 ### Added
@@ -37,9 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A zone shows a fault when its valve is unavailable.
 - Changing run times or enabled zones takes effect right away, without
   restarting the accessory.
-- **Advertise without ID suffix** option. The accessory is discovered as
-  "Irrigation System" instead of "Irrigation System 8D111D", and keeps the
-  suffix if the name is already taken.
 
 ### Changed
 - Turning the Irrigation System off now closes only the zones that are running.
@@ -89,5 +95,6 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[1.2.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.2.0
 [1.1.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.1.0
 [1.0.0]: https://github.com/bisman-automations/homekit-extended/releases/tag/v1.0.0
