@@ -1,3 +1,5 @@
+<img src="custom_components/homekit_extended/brand/icon@2x.png" alt="HomeKit Extended icon" width="128" align="right">
+
 # HomeKit Extended
 
 A Home Assistant custom integration that publishes HomeKit accessory types which
@@ -101,6 +103,12 @@ This integration replaces both standalone integrations.
 2. Remove the old accessories from Apple Home.
 3. Add them again here. Pairing can't be carried over, because the pairing
    state is stored per integration.
+
+## Icon
+
+The integration ships its own icon in `custom_components/homekit_extended/brand/`.
+Home Assistant 2026.3 and later shows it on the integration card; older versions
+show a placeholder. The source artwork is `assets/icon.svg`.
 
 ## Development
 
