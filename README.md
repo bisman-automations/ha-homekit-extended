@@ -112,7 +112,9 @@ when the fan supports them, and brightness when the light does.
 
 Each `event` entity becomes a **programmable button** you can use in Apple Home
 automations, with single, double and long press. Several event entities make one
-multi-button remote. Presses are recognized from the event types the device
+multi-button remote. If one entity covers a whole remote, with event types like
+`button_1_single` and `button_2_hold`, each physical button becomes its own
+HomeKit button (for example, "Scene Controller Button 1"). Presses are recognized from the event types the device
 reports. For example, Hue's `short_release` is a single press and `long_press`
 is a long press; other events are ignored. An entity that reports no event types
 treats every event as a single press.

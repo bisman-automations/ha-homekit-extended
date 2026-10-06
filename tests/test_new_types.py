@@ -202,3 +202,76 @@ async def test_power_strip(hass: HomeAssistant) -> None:
     char(outlets[1], "On").client_update_value(True)
     await hass.async_block_till_done()
     assert turn_on[0].data == {"entity_id": "input_boolean.two"}
+
+
+def test_split_buttons() -> None:
+    """Multi-button entities are split by button; single buttons are not."""
+    from custom_components.homekit_extended.accessories.buttons import (
+        button_key,
+        split_buttons,
+    )
+
+    assert button_key("button_1_single") == "button_1"
+    assert button_key("single_left") == "left"
+    assert button_key("2_multi_press_2") == "2"
+    assert button_key("short_release") == ""
+    hue = ["initial_press", "repeat", "short_release", "long_press", "long_release"]
+    assert split_buttons(hue) == {"": hue}
+    assert split_buttons(["single", "double", "hold"]) == {
+        "": ["single", "double", "hold"]
+    }
+    assert split_buttons(
+        ["button_1_single", "button_1_hold", "button_2_single", "button_2_double"]
+    ) == {
+        "button_1": ["button_1_single", "button_1_hold"],
+        "button_2": ["button_2_single", "button_2_double"],
+    }
+    assert split_buttons(["on", "off"]) == {"on": ["on"], "off": ["off"]}
+    assert split_buttons(None) == {"": []}
+
+
+async def test_multi_button_entity(hass: HomeAssistant) -> None:
+    """One event entity with several buttons becomes several HomeKit buttons."""
+    types = {
+        "event_types": [
+            "button_1_single",
+            "button_1_double",
+            "button_1_hold",
+            "button_2_single",
+            "button_2_hold",
+        ],
+        "friendly_name": "Scene Controller",
+    }
+    hass.states.async_set("event.remote", "2026-10-06T10:00:00", types)
+    entry = await setup_accessory(hass, "buttons", "Remote", events=["event.remote"])
+    acc = server(hass, entry.entry_id).accessory
+    switches = services_by_type(acc)["StatelessProgrammableSwitch"]
+    assert [char(s, "Name").value for s in switches] == [
+        "Scene Controller Button 1",
+        "Scene Controller Button 2",
+    ]
+    assert [char(s, "ServiceLabelIndex").value for s in switches] == [1, 2]
+
+    sent: list[tuple[str, int]] = []
+    names = {
+        id(char(s, "ProgrammableSwitchEvent")): char(s, "Name").value for s in switches
+    }
+    with patch.object(
+        type(char(switches[0], "ProgrammableSwitchEvent")),
+        "notify",
+        autospec=True,
+        side_effect=lambda self, *a, **k: sent.append((names[id(self)], self.value)),
+    ):
+        for when, event_type in (
+            ("2026-10-06T10:00:01", "button_2_hold"),
+            ("2026-10-06T10:00:02", "button_1_double"),
+            ("2026-10-06T10:00:03", "button_3_single"),  # unknown button
+        ):
+            hass.states.async_set(
+                "event.remote", when, {**types, "event_type": event_type}
+            )
+            await hass.async_block_till_done()
+    assert sent == [
+        ("Scene Controller Button 2", 2),
+        ("Scene Controller Button 1", 1),
+    ]

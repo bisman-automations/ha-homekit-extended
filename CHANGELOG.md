@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Irrigation System 8D111D". If another device on the network already uses that
   name, the suffix is kept. The option is off by default, and turning it on
   doesn't require pairing again.
+- **Multi-button event entities are split.** Some integrations put a whole
+  remote on one `event` entity, with event types like `button_1_single`,
+  `button_2_hold` or `single_left`. Each physical button now becomes its own
+  HomeKit button, worked out from the event types the entity reports.
+  Single-button entities, including Hue's `short_release` and `long_press`,
+  work as before.
+
+### Upgrading
+- A Buttons accessory that uses a multi-button entity gets new buttons, so
+  remove it from Apple Home and add it again: **Configure → Pairing → Reset
+  pairing**.
 
 ### Fixed
 - The minimum Home Assistant version is now 2025.3, which 1.1.0 already needed.
