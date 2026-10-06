@@ -5,51 +5,51 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "homekit_extended"
-VERSION: Final = "1.0.0"
+VERSION: Final = "1.1.0"
+MANUFACTURER: Final = "HomeKit Extended"
 
 CONF_ACCESSORY_TYPE: Final = "accessory_type"
+CONF_CONNECTION: Final = "connection"
+CONF_DEVICE: Final = "device"
 CONF_PIN: Final = "pin"
 CONF_PORT: Final = "port"
 
-ACCESSORY_AIR_PURIFIER: Final = "air_purifier"
-ACCESSORY_IRRIGATION: Final = "irrigation"
-ACCESSORY_TYPES: Final = (ACCESSORY_AIR_PURIFIER, ACCESSORY_IRRIGATION)
-
-# Air purifier
+# Entity fields
 CONF_AIR_QUALITY_SENSOR: Final = "air_quality_sensor"
+CONF_AQI_SENSOR: Final = "aqi_sensor"
+CONF_BATTERY_SENSOR: Final = "battery_sensor"
+CONF_CO2_SENSOR: Final = "co2_sensor"
+CONF_CONTACT_SENSOR: Final = "contact_sensor"
+CONF_DEFAULT_DURATION: Final = "default_duration"
+CONF_DISABLED_ZONES: Final = "disabled_zones"
+CONF_EVENTS: Final = "events"
 CONF_FAN: Final = "fan"
 CONF_FILTER_LIFE_SENSOR: Final = "filter_life_sensor"
 CONF_HUMIDITY_SENSOR: Final = "humidity_sensor"
+CONF_ILLUMINANCE_SENSOR: Final = "illuminance_sensor"
+CONF_LEAK_SENSOR: Final = "leak_sensor"
+CONF_LIGHT: Final = "light"
+CONF_MASTER: Final = "master"
+CONF_MOTION_SENSOR: Final = "motion_sensor"
+CONF_NO2_SENSOR: Final = "no2_sensor"
+CONF_OCCUPANCY_SENSOR: Final = "occupancy_sensor"
+CONF_ONE_AT_A_TIME: Final = "one_at_a_time"
+CONF_OUTLETS: Final = "outlets"
+CONF_OZONE_SENSOR: Final = "ozone_sensor"
+CONF_PM10_SENSOR: Final = "pm10_sensor"
 CONF_PM25_SENSOR: Final = "pm25_sensor"
+CONF_RUN_TIMES: Final = "run_times"
+CONF_SO2_SENSOR: Final = "so2_sensor"
 CONF_TEMPERATURE_SENSOR: Final = "temperature_sensor"
-
-AIR_PURIFIER_SENSOR_KEYS: Final = (
-    CONF_AIR_QUALITY_SENSOR,
-    CONF_PM25_SENSOR,
-    CONF_HUMIDITY_SENSOR,
-    CONF_TEMPERATURE_SENSOR,
-    CONF_FILTER_LIFE_SENSOR,
-)
-
-# Irrigation
-CONF_DEFAULT_DURATION: Final = "default_duration"
+CONF_VALVE_TYPE: Final = "valve_type"
 CONF_VALVES: Final = "valves"
+CONF_VOC_SENSOR: Final = "voc_sensor"
 
 DEFAULT_DURATION: Final = 900
-DEFAULT_PIN: Final = "123-45-678"
-
 # Core HomeKit Bridge starts at 21063; stay well clear of it.
-DEFAULT_PORTS: Final = {
-    ACCESSORY_IRRIGATION: 51828,
-    ACCESSORY_AIR_PURIFIER: 51829,
-}
+DEFAULT_PORT: Final = 51828
 
 FILTER_CHANGE_THRESHOLD: Final = 10
-
-MANUFACTURER: Final = "Home Assistant"
-MODELS: Final = {
-    ACCESSORY_AIR_PURIFIER: "HomeKit Extended Air Purifier",
-    ACCESSORY_IRRIGATION: "HomeKit Extended Irrigation",
-}
-
 VALVE_OPEN_STATES: Final = {"open", "opening"}
+
+SIGNAL_PAIRING_CHANGED: Final = f"{DOMAIN}_pairing_changed_{{}}"

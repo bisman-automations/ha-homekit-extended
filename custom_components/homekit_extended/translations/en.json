@@ -2,93 +2,433 @@
   "config": {
     "step": {
       "user": {
-        "title": "HomeKit Extended",
-        "description": "Choose the kind of HomeKit accessory to publish.",
+        "title": "Add a HomeKit accessory",
+        "description": "Each accessory is added to Apple Home on its own, with its own pairing code.",
         "menu_options": {
+          "irrigation": "Irrigation system",
+          "ceiling_fan": "Ceiling fan with light",
+          "buttons": "Buttons or remote",
+          "multi_sensor": "Multi-sensor",
+          "air_quality": "Air quality monitor",
           "air_purifier": "Air purifier",
-          "irrigation": "Irrigation system"
+          "power_strip": "Power strip",
+          "faucet": "Shower or faucet"
+        },
+        "menu_option_descriptions": {
+          "irrigation": "Valves become the zones of one Irrigation System. Each zone has its own run time and closes by itself; turning the system on runs every zone in turn.",
+          "ceiling_fan": "A fan and its light as one accessory, instead of two separate tiles.",
+          "buttons": "Event entities become HomeKit buttons with single, double and long press, ready for Home automations.",
+          "multi_sensor": "Motion, contact, leak, temperature, humidity, light level and battery from one device as one accessory.",
+          "air_quality": "All pollutant readings on one Air Quality sensor, rated by the worst one.",
+          "air_purifier": "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.",
+          "power_strip": "Several switches as the numbered outlets of one accessory.",
+          "faucet": "Valves become the outlets of one Shower or Faucet. Turning it on opens them all."
         }
       },
-      "air_purifier": {
-        "title": "Air purifier",
-        "description": "Publish a fan and optional sensors as one HomeKit Air Purifier accessory.",
+      "run_times": {
+        "title": "Run times for {name}",
+        "description": "How long each zone runs when started from Apple Home, in seconds (up to 3600; 0 runs until stopped). The valve closes by itself when the time is up. Run times changed in Apple Home are saved here too."
+      },
+      "entities": {
+        "title": "Choose entities for {name}",
+        "description": "Anything found on the device you picked is already filled in. Adjust as needed.",
         "data": {
-          "name": "Name",
-          "port": "HomeKit port",
-          "pin": "Pairing code",
+          "valves": "Valves",
+          "default_duration": "Default run time",
+          "valve_type": "Outlet type",
+          "one_at_a_time": "One zone at a time",
+          "master": "Pump or master valve",
           "fan": "Fan",
-          "air_quality_sensor": "Air quality sensor",
-          "pm25_sensor": "PM2.5 sensor",
-          "humidity_sensor": "Humidity sensor",
-          "temperature_sensor": "Temperature sensor",
-          "filter_life_sensor": "Filter life sensor"
+          "light": "Light",
+          "events": "Buttons",
+          "motion_sensor": "Motion",
+          "occupancy_sensor": "Occupancy",
+          "contact_sensor": "Door or window contact",
+          "leak_sensor": "Leak",
+          "temperature_sensor": "Temperature",
+          "humidity_sensor": "Humidity",
+          "illuminance_sensor": "Light level",
+          "battery_sensor": "Battery",
+          "aqi_sensor": "Air quality index",
+          "pm25_sensor": "PM2.5",
+          "pm10_sensor": "PM10",
+          "voc_sensor": "VOC",
+          "no2_sensor": "Nitrogen dioxide",
+          "ozone_sensor": "Ozone",
+          "so2_sensor": "Sulphur dioxide",
+          "co2_sensor": "Carbon dioxide",
+          "air_quality_sensor": "Air quality",
+          "filter_life_sensor": "Filter life",
+          "outlets": "Outlets"
         },
         "data_description": {
-          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
-          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
-          "fan": "Controls purifier power, speed, oscillation and auto mode (a preset named \"auto\").",
-          "air_quality_sensor": "A HomeKit 1-5 quality value or an AQI-style value.",
-          "pm25_sensor": "PM2.5 density in µg/m³. Used to estimate air quality when no air quality sensor is set.",
-          "filter_life_sensor": "Remaining filter life in percent. HomeKit asks for a replacement at 10% or less."
+          "valves": "Each valve becomes a zone (or outlet), named after the valve.",
+          "default_duration": "Starting run time for each zone; you can set each zone's own run time on the next step. Up to 3600 seconds; 0 runs until stopped.",
+          "valve_type": "How Apple Home shows each outlet.",
+          "one_at_a_time": "Starting a zone stops the one that's running. Turning the whole system on always runs zones one after another.",
+          "master": "Optional. Turned on while any zone runs and off 5 seconds after the last one stops. It isn't added to Apple Home.",
+          "events": "Each event entity becomes one button. Single, double and long presses are recognized from the event types the device reports.",
+          "aqi_sensor": "If set, this decides the overall rating instead of the individual pollutants.",
+          "voc_sensor": "In µg/m³.",
+          "no2_sensor": "In µg/m³.",
+          "ozone_sensor": "In µg/m³.",
+          "so2_sensor": "In µg/m³.",
+          "co2_sensor": "In ppm. Also shown as a Carbon Dioxide sensor that alerts at 1000 ppm.",
+          "pm25_sensor": "In µg/m³.",
+          "pm10_sensor": "In µg/m³.",
+          "air_quality_sensor": "A HomeKit 1-5 value or an AQI value.",
+          "filter_life_sensor": "Remaining filter life in %. Apple Home asks for a replacement at 10% or less.",
+          "battery_sensor": "Apple Home warns at 20% or less.",
+          "outlets": "Switches or input booleans, in outlet order.",
+          "fan": "Speed, oscillation and direction are added when the fan supports them.",
+          "light": "Brightness is added when the light supports it."
         }
       },
       "irrigation": {
         "title": "Irrigation system",
-        "description": "Publish valves as the zones of one HomeKit Irrigation System accessory.",
+        "description": "Valves become the zones of one Irrigation System. Each zone has its own run time and closes by itself; turning the system on runs every zone in turn.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "port": "HomeKit port",
-          "pin": "Pairing code",
-          "valves": "Zone valves",
-          "default_duration": "Default run time"
+          "device": "Device"
         },
         "data_description": {
-          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
-          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
-          "valves": "Each valve becomes a zone of one Irrigation System accessory.",
-          "default_duration": "How long a zone runs when started from Apple Home, up to 3600 seconds. The valve closes automatically when it ends. Can be changed per zone in Apple Home."
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "ceiling_fan": {
+        "title": "Ceiling fan with light",
+        "description": "A fan and its light as one accessory, instead of two separate tiles.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "buttons": {
+        "title": "Buttons or remote",
+        "description": "Event entities become HomeKit buttons with single, double and long press, ready for Home automations.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "multi_sensor": {
+        "title": "Multi-sensor",
+        "description": "Motion, contact, leak, temperature, humidity, light level and battery from one device as one accessory.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "air_quality": {
+        "title": "Air quality monitor",
+        "description": "All pollutant readings on one Air Quality sensor, rated by the worst one.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "air_purifier": {
+        "title": "Air purifier",
+        "description": "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "power_strip": {
+        "title": "Power strip",
+        "description": "Several switches as the numbered outlets of one accessory.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
+        }
+      },
+      "faucet": {
+        "title": "Shower or faucet",
+        "description": "Valves become the outlets of one Shower or Faucet. Turning it on opens them all.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "data": {
+          "name": "Name",
+          "device": "Device"
+        },
+        "data_description": {
+          "name": "Shown in Apple Home. Defaults to the device's name.",
+          "device": "Optional. Its matching entities are selected on the next step."
+        },
+        "sections": {
+          "connection": {
+            "name": "Connection",
+            "description": "Usually fine as suggested.",
+            "data": {
+              "port": "HomeKit port",
+              "pin": "Pairing code"
+            },
+            "data_description": {
+              "port": "Each accessory needs its own port. A free one is suggested.",
+              "pin": "8 digits as 123-45-678. A random code is suggested."
+            }
+          }
         }
       }
     },
     "error": {
-      "invalid_pin": "Use the format 123-45-678. Repeated digits, 123-45-678 and 876-54-321 are not allowed by HomeKit.",
-      "port_in_use": "This port is already used by another HomeKit accessory or bridge.",
-      "no_valves_selected": "Select at least one valve."
+      "invalid_pin": "Use the format 123-45-678. HomeKit doesn't allow repeated digits, 123-45-678 or 876-54-321.",
+      "port_in_use": "Another HomeKit accessory or bridge in Home Assistant is set up to use this port.",
+      "port_busy": "Something else on this host is already using this port, such as the old HomeKit Irrigation or Air Purifier integration. Pick another port or stop that service.",
+      "no_valves_selected": "Select at least one valve.",
+      "master_is_zone": "The pump or master valve can't also be a zone.",
+      "no_buttons_selected": "Select at least one event entity.",
+      "no_outlets_selected": "Select at least one switch.",
+      "no_sensors_selected": "Select at least one sensor besides the battery.",
+      "no_pollutants_selected": "Select an air quality index or at least one pollutant sensor."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "{title}",
-        "description": "Changing the port or pairing code, or adding or removing services, may require removing and re-adding the accessory in Apple Home.",
+        "title": "Manage {name}",
+        "menu_options": {
+          "entities": "Entities",
+          "run_times": "Run times",
+          "connection": "Port and pairing code",
+          "pairing": "Pairing"
+        },
+        "menu_option_descriptions": {
+          "entities": "Change which entities the accessory mirrors.",
+          "run_times": "Set how long each zone runs.",
+          "connection": "Change the HomeKit port or pairing code.",
+          "pairing": "Show the pairing QR code, or reset pairing."
+        }
+      },
+      "entities": {
+        "title": "Entities for {name}",
+        "description": "Adding or removing services may require removing and re-adding the accessory in Apple Home.",
         "data": {
-          "port": "HomeKit port",
-          "pin": "Pairing code",
+          "valves": "Valves",
+          "default_duration": "Default run time",
+          "valve_type": "Outlet type",
+          "one_at_a_time": "One zone at a time",
+          "master": "Pump or master valve",
           "fan": "Fan",
-          "air_quality_sensor": "Air quality sensor",
-          "pm25_sensor": "PM2.5 sensor",
-          "humidity_sensor": "Humidity sensor",
-          "temperature_sensor": "Temperature sensor",
-          "filter_life_sensor": "Filter life sensor",
-          "valves": "Zone valves",
-          "default_duration": "Default run time"
+          "light": "Light",
+          "events": "Buttons",
+          "motion_sensor": "Motion",
+          "occupancy_sensor": "Occupancy",
+          "contact_sensor": "Door or window contact",
+          "leak_sensor": "Leak",
+          "temperature_sensor": "Temperature",
+          "humidity_sensor": "Humidity",
+          "illuminance_sensor": "Light level",
+          "battery_sensor": "Battery",
+          "aqi_sensor": "Air quality index",
+          "pm25_sensor": "PM2.5",
+          "pm10_sensor": "PM10",
+          "voc_sensor": "VOC",
+          "no2_sensor": "Nitrogen dioxide",
+          "ozone_sensor": "Ozone",
+          "so2_sensor": "Sulphur dioxide",
+          "co2_sensor": "Carbon dioxide",
+          "air_quality_sensor": "Air quality",
+          "filter_life_sensor": "Filter life",
+          "outlets": "Outlets"
         },
         "data_description": {
-          "port": "Each accessory needs its own port. Avoid ports used by the HomeKit Bridge integration.",
-          "pin": "8-digit setup code in the format 123-45-678. A random code is suggested.",
-          "fan": "Controls purifier power, speed, oscillation and auto mode (a preset named \"auto\").",
-          "air_quality_sensor": "A HomeKit 1-5 quality value or an AQI-style value.",
-          "pm25_sensor": "PM2.5 density in µg/m³. Used to estimate air quality when no air quality sensor is set.",
-          "filter_life_sensor": "Remaining filter life in percent. HomeKit asks for a replacement at 10% or less.",
-          "valves": "Each valve becomes a zone of one Irrigation System accessory.",
-          "default_duration": "How long a zone runs when started from Apple Home, up to 3600 seconds. The valve closes automatically when it ends. Can be changed per zone in Apple Home."
+          "valves": "Each valve becomes a zone (or outlet), named after the valve.",
+          "default_duration": "Starting run time for each zone; you can set each zone's own run time on the next step. Up to 3600 seconds; 0 runs until stopped.",
+          "valve_type": "How Apple Home shows each outlet.",
+          "one_at_a_time": "Starting a zone stops the one that's running. Turning the whole system on always runs zones one after another.",
+          "master": "Optional. Turned on while any zone runs and off 5 seconds after the last one stops. It isn't added to Apple Home.",
+          "events": "Each event entity becomes one button. Single, double and long presses are recognized from the event types the device reports.",
+          "aqi_sensor": "If set, this decides the overall rating instead of the individual pollutants.",
+          "voc_sensor": "In µg/m³.",
+          "no2_sensor": "In µg/m³.",
+          "ozone_sensor": "In µg/m³.",
+          "so2_sensor": "In µg/m³.",
+          "co2_sensor": "In ppm. Also shown as a Carbon Dioxide sensor that alerts at 1000 ppm.",
+          "pm25_sensor": "In µg/m³.",
+          "pm10_sensor": "In µg/m³.",
+          "air_quality_sensor": "A HomeKit 1-5 value or an AQI value.",
+          "filter_life_sensor": "Remaining filter life in %. Apple Home asks for a replacement at 10% or less.",
+          "battery_sensor": "Apple Home warns at 20% or less.",
+          "outlets": "Switches or input booleans, in outlet order.",
+          "fan": "Speed, oscillation and direction are added when the fan supports them.",
+          "light": "Brightness is added when the light supports it."
+        }
+      },
+      "run_times": {
+        "title": "Run times for {name}",
+        "description": "How long each zone runs when started from Apple Home, in seconds (up to 3600; 0 runs until stopped). Changes apply right away without re-pairing."
+      },
+      "connection": {
+        "title": "Port and pairing code",
+        "description": "Changes take effect right away. A new pairing code only matters when pairing again.",
+        "data": {
+          "port": "HomeKit port",
+          "pin": "Pairing code"
+        },
+        "data_description": {
+          "port": "Each accessory needs its own port. A free one is suggested.",
+          "pin": "8 digits as 123-45-678. A random code is suggested."
+        }
+      },
+      "pairing": {
+        "title": "Pairing",
+        "description": "{status}",
+        "data": {
+          "reset_pairing": "Reset pairing"
+        },
+        "data_description": {
+          "reset_pairing": "Forgets every Apple Home pairing so the accessory can be added again. Remove it from Apple Home first."
         }
       }
     },
     "error": {
-      "invalid_pin": "Use the format 123-45-678. Repeated digits, 123-45-678 and 876-54-321 are not allowed by HomeKit.",
-      "port_in_use": "This port is already used by another HomeKit accessory or bridge.",
-      "no_valves_selected": "Select at least one valve."
+      "invalid_pin": "Use the format 123-45-678. HomeKit doesn't allow repeated digits, 123-45-678 or 876-54-321.",
+      "port_in_use": "Another HomeKit accessory or bridge in Home Assistant is set up to use this port.",
+      "port_busy": "Something else on this host is already using this port, such as the old HomeKit Irrigation or Air Purifier integration. Pick another port or stop that service.",
+      "no_valves_selected": "Select at least one valve.",
+      "master_is_zone": "The pump or master valve can't also be a zone.",
+      "no_buttons_selected": "Select at least one event entity.",
+      "no_outlets_selected": "Select at least one switch.",
+      "no_sensors_selected": "Select at least one sensor besides the battery.",
+      "no_pollutants_selected": "Select an air quality index or at least one pollutant sensor."
+    }
+  },
+  "selector": {
+    "valve_type": {
+      "options": {
+        "shower_head": "Shower head",
+        "faucet": "Faucet"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "paired": {
+        "name": "Paired"
+      }
     }
   }
 }

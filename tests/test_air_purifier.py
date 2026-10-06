@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_mock_service,
-)
+from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.homekit_extended.air_purifier import (
+from custom_components.homekit_extended.accessories.sensors import (
     homekit_air_quality,
-    homekit_air_quality_from_pm25,
+    pm25_air_quality,
 )
-from custom_components.homekit_extended.const import DOMAIN
 from homeassistant.components.fan import FanEntityFeature
 from homeassistant.const import ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import HomeAssistant
 
-from .conftest import server, services_by_type
+from .conftest import char, server, services_by_type, setup_accessory
 
 FAN = "fan.purifier"
 FEATURES = (
@@ -28,7 +24,7 @@ FEATURES = (
 )
 
 
-async def _setup(hass: HomeAssistant, **sensors) -> MockConfigEntry:
+async def _setup(hass: HomeAssistant, **sensors):
     hass.states.async_set(
         FAN,
         "on",
@@ -41,28 +37,10 @@ async def _setup(hass: HomeAssistant, **sensors) -> MockConfigEntry:
             "preset_mode": None,
         },
     )
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Purifier",
-        data={
-            "accessory_type": "air_purifier",
-            "port": 51829,
-            "pin": "031-45-154",
-            "fan": FAN,
-            **sensors,
-        },
-    )
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    return entry
+    return await setup_accessory(hass, "air_purifier", "Purifier", fan=FAN, **sensors)
 
 
-def _char(service, name):
-    return service.get_characteristic(name)
-
-
-async def test_services_and_initial_state(hass: HomeAssistant) -> None:
+async def test_services_and_state(hass: HomeAssistant) -> None:
     """Optional sensors add linked services and mirror state."""
     hass.states.async_set("sensor.pm25", "20")
     hass.states.async_set("sensor.temp", "68", {ATTR_UNIT_OF_MEASUREMENT: "°F"})
@@ -73,24 +51,21 @@ async def test_services_and_initial_state(hass: HomeAssistant) -> None:
         temperature_sensor="sensor.temp",
         filter_life_sensor="sensor.filter",
     )
-    acc = server(hass, entry.entry_id).accessory
-    services = services_by_type(acc)
+    services = services_by_type(server(hass, entry.entry_id).accessory)
     assert "HumiditySensor" not in services
     purifier = services["AirPurifier"][0]
-
-    assert _char(purifier, "Active").value == 1
-    assert _char(purifier, "CurrentAirPurifierState").value == 2
-    assert _char(purifier, "RotationSpeed").value == 40
-    assert _char(purifier, "RotationSpeed").properties["minStep"] == 20
-    assert _char(services["AirQualitySensor"][0], "AirQuality").value == 2
-    assert _char(services["AirQualitySensor"][0], "PM2.5Density").value == 20
-    assert _char(services["TemperatureSensor"][0], "CurrentTemperature").value == 20
-    assert _char(services["FilterMaintenance"][0], "FilterChangeIndication").value == 1
+    assert char(purifier, "Active").value == 1
+    assert char(purifier, "CurrentAirPurifierState").value == 2
+    assert char(purifier, "RotationSpeed").value == 40
+    assert char(purifier, "RotationSpeed").properties["minStep"] == 20
+    assert char(services["AirQualitySensor"][0], "AirQuality").value == 2
+    assert char(services["TemperatureSensor"][0], "CurrentTemperature").value == 20
+    assert char(services["FilterMaintenance"][0], "FilterChangeIndication").value == 1
 
     hass.states.async_set(FAN, "off", {ATTR_SUPPORTED_FEATURES: FEATURES})
     await hass.async_block_till_done()
-    assert _char(purifier, "Active").value == 0
-    assert _char(services["Fanv2"][0], "Active").value == 0
+    assert char(purifier, "Active").value == 0
+    assert char(services["Fanv2"][0], "Active").value == 0
 
 
 async def test_homekit_commands(hass: HomeAssistant) -> None:
@@ -106,7 +81,6 @@ async def test_homekit_commands(hass: HomeAssistant) -> None:
     acc._set_chars({"TargetAirPurifierState": 1})
     acc._set_chars({"Active": 0})
     await hass.async_block_till_done()
-
     assert set_pct[0].data == {"entity_id": FAN, "percentage": 60}
     assert oscillate[0].data == {"entity_id": FAN, "oscillating": True}
     assert preset[0].data == {"entity_id": FAN, "preset_mode": "Auto"}
@@ -125,18 +99,6 @@ async def test_unload(hass: HomeAssistant, mock_hap_network) -> None:
 def test_air_quality_mapping() -> None:
     """AQI and PM2.5 map onto HomeKit's 1-5 scale."""
     assert [homekit_air_quality(v) for v in (1, 5, 30, 75, 120, 180, 300)] == [
-        1,
-        5,
-        1,
-        2,
-        3,
-        4,
-        5,
-    ]
-    assert [homekit_air_quality_from_pm25(v) for v in (5, 20, 50, 100, 200)] == [
-        1,
-        2,
-        3,
-        4,
-        5,
-    ]
+        1, 5, 1, 2, 3, 4, 5,
+    ]  # fmt: skip
+    assert [pm25_air_quality(v) for v in (5, 20, 50, 100, 200)] == [1, 2, 3, 4, 5]

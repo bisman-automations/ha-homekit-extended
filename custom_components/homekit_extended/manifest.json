@@ -2,8 +2,12 @@
   "domain": "homekit_extended",
   "name": "HomeKit Extended",
   "after_dependencies": [
+    "binary_sensor",
+    "event",
     "fan",
+    "light",
     "sensor",
+    "switch",
     "valve"
   ],
   "codeowners": [
@@ -11,6 +15,7 @@
   ],
   "config_flow": true,
   "dependencies": [
+    "http",
     "network",
     "zeroconf"
   ],
@@ -22,7 +27,9 @@
     "pyhap"
   ],
   "requirements": [
-    "HAP-python>=5.0.0"
+    "HAP-python>=5.0.0",
+    "PyQRCode>=1.2.1",
+    "base36>=0.1.1"
   ],
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
