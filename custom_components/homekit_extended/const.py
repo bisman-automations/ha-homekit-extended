@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "homekit_extended"
-VERSION: Final = "1.3.0"
+VERSION: Final = "1.4.0"
 MANUFACTURER: Final = "HomeKit Extended"
 
 CONF_ACCESSORY_TYPE: Final = "accessory_type"
@@ -47,6 +47,7 @@ CONF_RUN_TIMES: Final = "run_times"
 CONF_SERIAL: Final = "serial_number"
 CONF_SO2_SENSOR: Final = "so2_sensor"
 CONF_TEMPERATURE_SENSOR: Final = "temperature_sensor"
+CONF_USE_CONTROLLER: Final = "use_controller_timers"
 CONF_VALVE_TYPE: Final = "valve_type"
 CONF_VALVES: Final = "valves"
 CONF_VOC_SENSOR: Final = "voc_sensor"

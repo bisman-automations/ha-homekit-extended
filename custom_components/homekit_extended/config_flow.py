@@ -34,7 +34,7 @@ from .accessories.base import (
     device_name,
     firmware_version,
 )
-from .accessories.valves import run_times_form, zone_run_times
+from .accessories.valves import async_save_run_times, run_times_form, zone_run_times
 from .const import (
     CONF_ACCESSORY_TYPE,
     CONF_CONNECTION,
@@ -48,6 +48,7 @@ from .const import (
     CONF_PORT,
     CONF_RUN_TIMES,
     CONF_SERIAL,
+    CONF_USE_CONTROLLER,
     DEFAULT_PORT,
     DOMAIN,
     VERSION,
@@ -277,11 +278,14 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
         """Set how long each zone runs when started from Apple Home."""
         assert self._type is not None and self._type.zones_key
         valves = self._data[self._type.zones_key]
+        use_controller = bool(self._data.get(CONF_USE_CONTROLLER, True))
         schema, labels, suggested = run_times_form(
-            self.hass, valves, zone_run_times(self._data, valves)
+            self.hass, valves, zone_run_times(self._data, valves), use_controller
         )
         if user_input is not None:
-            self._data[CONF_RUN_TIMES] = _run_times_from_form(user_input, labels)
+            self._data[CONF_RUN_TIMES] = await async_save_run_times(
+                self.hass, user_input, labels, use_controller
+            )
             return self.async_create_entry(title=self._title, data=self._data)
         return self.async_show_form(
             step_id="run_times",
@@ -315,16 +319,6 @@ for _accessory_type in ACCESSORY_TYPES.values():
         f"async_step_{_accessory_type.key}",
         _make_type_step(_accessory_type),
     )
-
-
-def _run_times_from_form(
-    user_input: dict[str, Any], labels: dict[str, str]
-) -> dict[str, int]:
-    return {
-        entity_id: int(user_input[label])
-        for label, entity_id in labels.items()
-        if user_input.get(label) is not None
-    }
 
 
 class HomeKitExtendedOptionsFlow(OptionsFlow):
@@ -392,13 +386,15 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
             v["entity_id"] if isinstance(v, dict) else v
             for v in current[self._type.zones_key]  # type: ignore[index]
         ]
+        use_controller = bool(current.get(CONF_USE_CONTROLLER, True))
         schema, labels, suggested = run_times_form(
-            self.hass, valves, zone_run_times(current, valves)
+            self.hass, valves, zone_run_times(current, valves), use_controller
         )
         if user_input is not None:
-            return self._save(
-                {CONF_RUN_TIMES: _run_times_from_form(user_input, labels)}
+            stored = await async_save_run_times(
+                self.hass, user_input, labels, use_controller
             )
+            return self._save({CONF_RUN_TIMES: stored})
         return self.async_show_form(
             step_id="run_times",
             data_schema=self.add_suggested_values_to_schema(

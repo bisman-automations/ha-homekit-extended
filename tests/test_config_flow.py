@@ -126,6 +126,7 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
         "default_duration": 600,
         "one_at_a_time": True,
         "master": None,
+        "use_controller_timers": True,
         "manufacturer": "Hunter",
         "model": "IQ4",
         "run_times": {"valve.front": 300, "valve.back": 1200},

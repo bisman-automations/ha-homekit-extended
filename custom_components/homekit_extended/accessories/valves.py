@@ -9,6 +9,10 @@ Everything here maps onto native HomeKit behavior:
 - A valve that is unavailable shows as a fault (StatusFault).
 - An optional pump or master valve runs while any zone is open. It is driven
   from Home Assistant and never exposed to HomeKit.
+- When a valve's device also has a run-time number and an end-time sensor
+  (Rain Bird Extended, for example), the controller owns the run: run times
+  read and write that number, the countdown comes from that sensor, and the
+  controller closes the valve itself.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ from ..const import (
     CONF_MASTER,
     CONF_ONE_AT_A_TIME,
     CONF_RUN_TIMES,
+    CONF_USE_CONTROLLER,
     CONF_VALVE_TYPE,
     CONF_VALVES,
     DEFAULT_DURATION,
@@ -54,6 +59,14 @@ from .base import (
     entity_list,
     find_entities,
 )
+from .zone_links import (
+    ZoneLinks,
+    duration_limits,
+    duration_seconds,
+    find_zone_links,
+    seconds_per_unit,
+    seconds_until,
+)
 
 CHAR_ACTIVE = "Active"
 CHAR_IN_USE = "InUse"
@@ -66,6 +79,9 @@ CHAR_VALVE_TYPE = "ValveType"
 
 MAX_DURATION = 3600
 DURATION_PROPERTIES = {"minValue": 0, "maxValue": MAX_DURATION, "minStep": 1}
+# Matches core HomeKit: pyhap clamps RemainingDuration to maxValue, so allow
+# long controller-side runs to count down correctly.
+LINKED_REMAINING_MAX = 48 * 3600
 # Keep the pump running briefly so it doesn't cycle between zones.
 PUMP_OFF_DELAY = 5
 
@@ -108,6 +124,7 @@ def _irrigation_schema() -> dict[vol.Marker, Any]:
         ): _duration_field(),
         vol.Required(CONF_ONE_AT_A_TIME, default=True): selector.BooleanSelector(),
         vol.Optional(CONF_MASTER): entity_field(MASTER_DOMAINS),
+        vol.Required(CONF_USE_CONTROLLER, default=True): selector.BooleanSelector(),
     }
 
 
@@ -122,6 +139,7 @@ def _faucet_schema() -> dict[vol.Marker, Any]:
             )
         ),
         vol.Required(CONF_DEFAULT_DURATION, default=0): _duration_field(),
+        vol.Required(CONF_USE_CONTROLLER, default=True): selector.BooleanSelector(),
     }
 
 
@@ -156,21 +174,73 @@ def zone_run_times(data: dict[str, Any], valves: list[str]) -> dict[str, int]:
 
 
 def run_times_form(
-    hass: HomeAssistant, valves: list[str], run_times: dict[str, int]
+    hass: HomeAssistant,
+    valves: list[str],
+    run_times: dict[str, int],
+    use_controller: bool = True,
 ) -> tuple[dict[vol.Marker, Any], dict[str, str], dict[str, int]]:
     """One run-time field per valve, labeled with the valve's name.
+
+    Zones whose controller has its own run-time entity show and edit that
+    value, within the controller's limits.
 
     Returns (schema, field label -> entity id, suggested values).
     """
     labels: dict[str, str] = {}
+    schema: dict[vol.Marker, Any] = {}
+    suggested: dict[str, int] = {}
     for entity_id in valves:
         label = friendly_name(hass, entity_id)
         if label in labels:
             label = f"{label} ({entity_id})"
         labels[label] = entity_id
-    schema = {vol.Required(label): _duration_field() for label in labels}
-    suggested = {label: run_times[entity_id] for label, entity_id in labels.items()}
+        field_selector = _duration_field()
+        value = run_times[entity_id]
+        links = find_zone_links(hass, entity_id) if use_controller else ZoneLinks()
+        if links.duration:
+            state = hass.states.get(links.duration)
+            if (limits := duration_limits(state)) is not None:
+                low, high, step = limits
+                field_selector = selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=low,
+                        max=high,
+                        step=step,
+                        unit_of_measurement="s",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                )
+            if (linked := duration_seconds(state)) is not None:
+                value = linked
+        schema[vol.Required(label)] = field_selector
+        suggested[label] = value
     return schema, labels, suggested
+
+
+async def async_save_run_times(
+    hass: HomeAssistant,
+    user_input: dict[str, Any],
+    labels: dict[str, str],
+    use_controller: bool = True,
+) -> dict[str, int]:
+    """Write controller-owned run times to their entities; return the rest."""
+    stored: dict[str, int] = {}
+    for label, entity_id in labels.items():
+        if user_input.get(label) is None:
+            continue
+        seconds = int(user_input[label])
+        links = find_zone_links(hass, entity_id) if use_controller else ZoneLinks()
+        if links.duration:
+            factor = seconds_per_unit(hass.states.get(links.duration)) or 1
+            await hass.services.async_call(
+                links.duration.split(".", 1)[0],
+                "set_value",
+                {"entity_id": links.duration, "value": round(seconds / factor, 3)},
+                blocking=True,
+            )
+        else:
+            stored[entity_id] = seconds
+    return stored
 
 
 @dataclass(slots=True)
@@ -185,6 +255,7 @@ class Zone:
     configured: Characteristic
     fault: Characteristic
     duration: int
+    links: ZoneLinks = ZoneLinks()
     ends_at: float | None = None
     close_handle: asyncio.TimerHandle | None = field(default=None, repr=False)
 
@@ -215,6 +286,11 @@ class ValveGroupAccessory(HomeAccessory):
         self.disabled_zones: set[str] = set(self.data.get(CONF_DISABLED_ZONES) or [])
         self.one_at_a_time = self.default_one_at_a_time()
         self.master: str | None = self.data.get(CONF_MASTER)
+        self.links: dict[str, ZoneLinks] = (
+            {entity_id: find_zone_links(hass, entity_id) for entity_id in self.valves}
+            if self.data.get(CONF_USE_CONTROLLER, True)
+            else {}
+        )
         self._zones: dict[str, Zone] = {}
         self._sequence: deque[str] = deque()
         self._sequence_current: str | None = None
@@ -239,7 +315,13 @@ class ValveGroupAccessory(HomeAccessory):
 
         if self.master and (state := hass.states.get(self.master)) is not None:
             self._pump_on = state.state in ("on", *VALVE_OPEN_STATES)
-        self.track({entity_id: self._update_zone for entity_id in self.valves})
+        handlers = {entity_id: self._update_zone for entity_id in self.valves}
+        for entity_id, links in self.links.items():
+            if links.duration:
+                handlers[links.duration] = self._linked_duration_handler(entity_id)
+            if links.end_time:
+                handlers[links.end_time] = self._linked_end_time_handler(entity_id)
+        self.track(handlers)
         self._building = False
         self._update_system()
 
@@ -264,6 +346,22 @@ class ValveGroupAccessory(HomeAccessory):
         """Handle the parent service being turned on."""
 
     def _add_zone(self, entity_id: str) -> Any:
+        links = self.links.get(entity_id, ZoneLinks())
+        duration = self.run_times[entity_id]
+        duration_props = DURATION_PROPERTIES
+        remaining_props = DURATION_PROPERTIES
+        if links.duration:
+            state = self.hass.states.get(links.duration)
+            if (linked := duration_seconds(state)) is not None:
+                duration = linked
+            if (limits := duration_limits(state)) is not None:
+                low, high, step = limits
+                duration_props = {"minValue": low, "maxValue": high, "minStep": step}
+        if links:
+            remaining_props = {
+                **DURATION_PROPERTIES,
+                "maxValue": max(duration_props["maxValue"], LINKED_REMAINING_MAX),
+            }
         service = self.add_named_service(
             "Valve",
             friendly_name(self.hass, entity_id),
@@ -286,14 +384,14 @@ class ValveGroupAccessory(HomeAccessory):
             in_use=service.configure_char(CHAR_IN_USE, value=HK_NOT_IN_USE),
             set_duration=service.configure_char(
                 CHAR_SET_DURATION,
-                value=self.run_times[entity_id],
-                properties=DURATION_PROPERTIES,
+                value=duration,
+                properties=duration_props,
                 setter_callback=lambda value: self._set_zone_duration(entity_id, value),
             ),
             remaining=service.configure_char(
                 CHAR_REMAINING_DURATION,
                 value=0,
-                properties=DURATION_PROPERTIES,
+                properties=remaining_props,
                 getter_callback=lambda: self._zone_remaining_seconds(entity_id),
             ),
             configured=service.configure_char(
@@ -308,9 +406,30 @@ class ValveGroupAccessory(HomeAccessory):
                 ),
             ),
             fault=service.configure_char(CHAR_STATUS_FAULT, value=HK_NO_FAULT),
-            duration=self.run_times[entity_id],
+            duration=duration,
+            links=links,
         )
         return service
+
+    def _linked_duration_handler(self, entity_id: str):
+        @callback
+        def update(state: State) -> None:
+            if (seconds := duration_seconds(state)) is None:
+                return
+            zone = self._zones[entity_id]
+            zone.duration = seconds
+            zone.set_duration.set_value(seconds)
+
+        return update
+
+    def _linked_end_time_handler(self, entity_id: str):
+        @callback
+        def update(state: State) -> None:
+            zone = self._zones[entity_id]
+            zone.remaining.set_value(self._zone_remaining_seconds(entity_id))
+            self._update_system()
+
+        return update
 
     async def async_stop(self) -> None:
         """Release listeners and pending timers."""
@@ -350,6 +469,19 @@ class ValveGroupAccessory(HomeAccessory):
 
     def _set_zone_duration(self, entity_id: str, value: int) -> None:
         zone = self._zones[entity_id]
+        if zone.links.duration:
+            # The controller's number is the source of truth; its state change
+            # comes back through the linked duration handler.
+            state = self.hass.states.get(zone.links.duration)
+            factor = seconds_per_unit(state) or 1
+            zone.duration = int(value)
+            self.call_service(
+                zone.links.duration.split(".", 1)[0],
+                "set_value",
+                zone.links.duration,
+                value=round(int(value) / factor, 3),
+            )
+            return
         zone.duration = max(0, min(int(value), MAX_DURATION))
         if zone.ends_at is not None:
             self._schedule_close(zone, zone.duration)
@@ -385,7 +517,7 @@ class ValveGroupAccessory(HomeAccessory):
         run_times = zone_run_times(config, self.valves)
         self.disabled_zones = set(config.get(CONF_DISABLED_ZONES) or [])
         for entity_id, zone in self._zones.items():
-            if run_times[entity_id] != zone.duration:
+            if not zone.links.duration and run_times[entity_id] != zone.duration:
                 zone.duration = run_times[entity_id]
                 zone.set_duration.set_value(zone.duration)
             zone.configured.set_value(
@@ -404,7 +536,14 @@ class ValveGroupAccessory(HomeAccessory):
         zone.active.set_value(HK_ACTIVE)
         zone.in_use.set_value(HK_IN_USE)
         self.call_service(VALVE_DOMAIN, SERVICE_OPEN_VALVE, entity_id)
-        self._schedule_close(zone, zone.duration)
+        if zone.links.duration:
+            # The controller runs the zone for its own run time and closes it.
+            self._cancel_run(zone, publish=False)
+            if not zone.links.end_time:
+                zone.ends_at = self.hass.loop.time() + zone.duration
+            zone.remaining.set_value(self._zone_remaining_seconds(entity_id))
+        else:
+            self._schedule_close(zone, zone.duration)
 
     def _close_zone(self, entity_id: str) -> None:
         zone = self._zones[entity_id]
@@ -466,20 +605,28 @@ class ValveGroupAccessory(HomeAccessory):
 
     def _zone_remaining_seconds(self, entity_id: str) -> int:
         zone = self._zones[entity_id]
+        limit = zone.remaining.properties.get("maxValue", MAX_DURATION)
+        if zone.links.end_time:
+            if not zone.running:
+                return 0
+            return min(limit, seconds_until(self.hass.states.get(zone.links.end_time)))
         if zone.ends_at is None:
             return 0
-        return max(0, min(MAX_DURATION, round(zone.ends_at - self.hass.loop.time())))
+        return max(0, min(limit, round(zone.ends_at - self.hass.loop.time())))
 
     def _system_remaining_seconds(self) -> int:
         if self._sequence_current is not None:
             total = self._zone_remaining_seconds(self._sequence_current) + sum(
                 self._zones[entity_id].duration for entity_id in self._sequence
             )
-            return min(total, MAX_DURATION)
+            return min(total, self._system_remaining_max())
         return max(
             (self._zone_remaining_seconds(entity_id) for entity_id in self._zones),
             default=0,
         )
+
+    def _system_remaining_max(self) -> int:
+        return LINKED_REMAINING_MAX if any(self.links.values()) else MAX_DURATION
 
     # Home Assistant -> HomeKit
 
@@ -568,7 +715,10 @@ class IrrigationAccessory(ValveGroupAccessory):
         self._system_remaining = system.configure_char(
             CHAR_REMAINING_DURATION,
             value=0,
-            properties=DURATION_PROPERTIES,
+            properties={
+                **DURATION_PROPERTIES,
+                "maxValue": self._system_remaining_max(),
+            },
             getter_callback=self._system_remaining_seconds,
         )
 

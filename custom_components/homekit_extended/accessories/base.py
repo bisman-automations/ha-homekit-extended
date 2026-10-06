@@ -151,11 +151,23 @@ def entity_list(raw: Any) -> list[str]:
 
 
 def device_entities(hass: HomeAssistant, device_id: str) -> list[er.RegistryEntry]:
-    """User-facing, enabled entities of a device, in registry order."""
+    """User-facing, enabled entities of a device and the devices under it.
+
+    Controllers often put each zone, outlet or button on its own device linked
+    to the controller (Rain Bird zones, for example), so picking the controller
+    should find them too.
+    """
     registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    device_ids = [device_id] + [
+        device.id
+        for device in devices.devices.values()
+        if device.via_device_id == device_id
+    ]
     return [
         entry
-        for entry in er.async_entries_for_device(registry, device_id)
+        for each_id in device_ids
+        for entry in er.async_entries_for_device(registry, each_id)
         if entry.disabled_by is None and entry.entity_category is None
     ]
 

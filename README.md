@@ -97,6 +97,12 @@ controls; nothing extra appears in Apple Home.
   runs and turns off 5 seconds after the last one, so it doesn't cycle between
   zones. It isn't added to Apple Home.
 - **Faults.** A zone whose valve is unavailable shows a fault in Apple Home.
+- **Controller run times and countdowns.** When a valve's device also has a
+  run-time number and a time-remaining sensor, Apple Home uses those instead,
+  and the controller ends each run. [Rain Bird Extended](https://github.com/bisman-automations/ha-rainbird-extended)
+  adds both to every Rain Bird zone; pick the Rain Bird controller during
+  setup and all of its zones are found. Turn this off with **Use the
+  controller's run times and countdown**.
 - **Changes outside HomeKit**, for example from an automation or the controller
   itself, are mirrored to Apple Home.
 

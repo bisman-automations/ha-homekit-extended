@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-10-06
+
+### Added
+- **Controller run times and countdowns for irrigation and showers.** When a
+  valve's device also has a run-time `number` and a time-remaining timestamp
+  `sensor`, the zone uses them. This is the same pattern as core HomeKit's
+  linked valve duration and end time, and
+  [Rain Bird Extended](https://github.com/bisman-automations/ha-rainbird-extended)
+  creates these for every Rain Bird zone.
+  - A zone's run time in Apple Home shows and changes the controller's
+    run-time entity, within its limits. A Rain Bird zone, for example, runs from
+    1 minute to 24 hours in 1-minute steps.
+  - The countdown comes from the controller's time-remaining sensor, and the
+    controller ends each run itself, so this integration doesn't keep a timer
+    that could disagree with it.
+  - "Run all zones" moves on when the controller finishes each zone.
+  - The run-times step and **Configure → Run times** write to the
+    controller's entities for those zones.
+  - Controller timers are on by default. Turn them off with **Use the
+    controller's run times and countdown** under Entities.
+- **Picking a controller finds its zones.** Picking a device during setup now
+  also finds the entities on devices connected through it. For example, picking
+  a Rain Bird controller selects all of its zone valves.
+
 ## [1.3.0] - 2026-10-06
 
 ### Added
@@ -127,6 +151,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.2.0
 [1.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.1.0
