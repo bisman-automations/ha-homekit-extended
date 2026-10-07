@@ -13,6 +13,7 @@ import socket
 from unittest.mock import MagicMock, patch
 
 from aiohomekit.controller.ip.discovery import IpDiscovery
+from aiohomekit.exceptions import AuthenticationError
 from aiohomekit.model.categories import Categories
 from aiohomekit.model.feature_flags import FeatureFlags
 from aiohomekit.model.status_flags import StatusFlags
@@ -72,9 +73,19 @@ async def _pair(hass, driver, port: int, pin: str):
         addresses=["127.0.0.1"],
         port=port,
     )
-    discovery = IpDiscovery(controller, description)
-    finish = await discovery.async_start_pairing("test")
-    return await finish(pin)
+    # Pair setup between aiohomekit and HAP-python fails at random at step 4
+    # (roughly 1 pairing in 80 in testing), independent of this integration;
+    # retry rather than let it fail CI.
+    for attempt in range(3):
+        discovery = IpDiscovery(controller, description)
+        try:
+            finish = await discovery.async_start_pairing("test")
+            return await finish(pin)
+        except AuthenticationError:
+            await discovery.close()
+            if attempt == 2:
+                raise
+    raise AssertionError("unreachable")
 
 
 def _by_type(accessory, service_type):
