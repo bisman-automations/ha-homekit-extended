@@ -33,7 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   responding when every entity it mirrors is unavailable, the same as core
   HomeKit accessories.
 - CI now also runs the tests against Home Assistant's beta and development
-  versions, so changes to core HomeKit show up before they're released.
+  versions, so changes to core HomeKit show up before they're released. The
+  tests pass on 2026.10 beta.
 
 ### Changed
 - HomeKit Extended now depends on Home Assistant's HomeKit Bridge integration

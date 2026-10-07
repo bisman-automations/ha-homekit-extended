@@ -52,8 +52,9 @@ def _rain_bird(hass: HomeAssistant) -> str:
             config_entry_id=source.entry_id,
             identifiers={("rainbird", f"ctrl-{zone}")},
             name=name,
-            via_device=("rainbird", "ctrl"),
         )
+        # Linked afterwards: works on releases before and after via_device_id.
+        device = devices.async_update_device(device.id, via_device_id=controller.id)
         for domain, key, device_class in (
             ("valve", "valve", "water"),
             ("number", "valve_runtime", "duration"),

@@ -44,7 +44,9 @@ async def test_pairing_notification_and_qr(hass: HomeAssistant, hass_client) -> 
 async def test_paired_sensor_and_device(hass: HomeAssistant) -> None:
     """A device with a Paired sensor follows pairing changes."""
     entry = await setup_accessory(hass, "power_strip", "Desk", outlets=["switch.a"])
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    registry = dr.async_get(hass)
+    (device,) = dr.async_entries_for_config_entry(registry, entry.entry_id)
+    assert (DOMAIN, entry.entry_id) in device.identifiers
     assert device.name == "Desk"
     assert device.model == "HomeKit Extended Power Strip"
     state = hass.states.get("binary_sensor.desk_paired")
