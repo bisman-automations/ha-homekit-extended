@@ -42,6 +42,7 @@ from ..const import (
 )
 from .base import (
     IGNORED_STATES,
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     drop_empty,
@@ -140,10 +141,14 @@ class AirPurifierAccessory(HomeAccessory):
     category = CATEGORY_AIR_PURIFIER
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, AIR_PURIFIER.model)
+        super().__init__(hass, driver, entry, AIR_PURIFIER.model, aid)
         self.fan: str = self.data[CONF_FAN]
         self.air_quality_sensor: str | None = self.data.get(CONF_AIR_QUALITY_SENSOR)
         fan_state = hass.states.get(self.fan)

@@ -25,7 +25,11 @@ async def async_get_config_entry_diagnostics(
             "data": async_redact_data(dict(entry.data), TO_REDACT),
             "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
-        "port": server.port,
+        **(
+            {"bridge": server.bridge_name, "attached": server.attached}
+            if getattr(server, "bridged", False)
+            else {"port": server.port}
+        ),
         "paired": server.paired,
         "paired_controllers": len(driver.state.paired_clients) if driver else 0,
         "accessory": server.accessory.to_HAP() if server.accessory else None,

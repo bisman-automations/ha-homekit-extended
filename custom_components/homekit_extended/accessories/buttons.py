@@ -27,6 +27,7 @@ from ..const import CONF_EVENTS
 from ..helpers import friendly_name
 from .base import (
     IGNORED_STATES,
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     entity_field,
@@ -204,10 +205,14 @@ class ButtonsAccessory(HomeAccessory):
     category = CATEGORY_PROGRAMMABLE_SWITCH
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, BUTTONS.model)
+        super().__init__(hass, driver, entry, BUTTONS.model, aid)
         self.events = entity_list(self.data.get(CONF_EVENTS))
         self._sources: dict[str, EventSource] = {}
 

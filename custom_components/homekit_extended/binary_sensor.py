@@ -38,6 +38,8 @@ class PairedSensor(BinarySensorEntity):
         """Initialize the sensor."""
         self._entry = entry
         server = entry.runtime_data
+        # Core HomeKit doesn't announce pairing changes, so check now and then.
+        self._attr_should_poll = getattr(server, "bridged", False)
         self._attr_unique_id = f"{entry.entry_id}_paired"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
@@ -54,9 +56,12 @@ class PairedSensor(BinarySensorEntity):
         return self._entry.runtime_data.paired
 
     @property
-    def extra_state_attributes(self) -> dict[str, int]:
-        """Expose the HAP port for troubleshooting."""
-        return {"port": self._entry.runtime_data.port}
+    def extra_state_attributes(self) -> dict[str, int | str]:
+        """Expose the HAP port, or the bridge, for troubleshooting."""
+        server = self._entry.runtime_data
+        if getattr(server, "bridged", False):
+            return {"bridge": server.bridge_name}
+        return {"port": server.port}
 
     async def async_added_to_hass(self) -> None:
         """Update when pairing changes."""

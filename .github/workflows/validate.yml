@@ -36,3 +36,27 @@ jobs:
       - run: ruff check custom_components tests
       - run: ruff format --check custom_components tests
       - run: pytest -q
+
+  # Bridge mode hooks into core HomeKit, so run the tests against upcoming
+  # Home Assistant releases too. These report problems early without blocking.
+  tests-upcoming:
+    name: tests (HA ${{ matrix.channel }})
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - channel: beta
+            install: pip install --pre --upgrade homeassistant
+          - channel: dev
+            install: pip install "homeassistant @ git+https://github.com/home-assistant/core.git@dev"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements_test.txt
+      - run: ${{ matrix.install }}
+      - run: python -c "import homeassistant.const as c; print('Home Assistant', c.__version__)"
+      - run: pytest -q

@@ -41,6 +41,7 @@ from homeassistant.helpers import entity_registry as er
 from ..const import CONF_FAN, CONF_LIGHT
 from .base import (
     IGNORED_STATES,
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     drop_empty,
@@ -77,10 +78,14 @@ class CeilingFanAccessory(HomeAccessory):
     category = CATEGORY_FAN
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, CEILING_FAN.model)
+        super().__init__(hass, driver, entry, CEILING_FAN.model, aid)
         self.fan: str = self.data[CONF_FAN]
         self.light: str = self.data[CONF_LIGHT]
 

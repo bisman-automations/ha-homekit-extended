@@ -2,3 +2,6 @@ pytest-homeassistant-custom-component
 HAP-python>=5.0.0
 PyQRCode>=1.2.1
 base36>=0.1.1
+PyTurboJPEG
+fnv-hash-fast
+ha-ffmpeg

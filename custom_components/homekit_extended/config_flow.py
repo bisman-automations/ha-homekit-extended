@@ -2,8 +2,8 @@
 
 Adding an accessory is two short steps: pick a name and (optionally) the device
 it represents, then confirm the entities, which are pre-filled from that device.
-The port and pairing code are suggested automatically and tucked away in a
-collapsed section.
+The accessory can get its own pairing (the port and pairing code are suggested
+and tucked away in a collapsed section) or join one of core HomeKit's bridges.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -31,6 +32,7 @@ from .accessories.base import (
     INFO_KEYS,
     MAX_INFO_LENGTH,
     accessory_info,
+    configured_entity_ids,
     device_entities,
     device_name,
     source_device_info,
@@ -41,8 +43,10 @@ from .accessories.valves import (
     run_times_form,
     zone_run_times,
 )
+from .bridge import bridged_entity_ids, homekit_bridges
 from .const import (
     CONF_ACCESSORY_TYPE,
+    CONF_BRIDGE,
     CONF_CONNECTION,
     CONF_DEVICE,
     CONF_FIRMWARE,
@@ -57,6 +61,7 @@ from .const import (
     CONF_USE_CONTROLLER,
     DEFAULT_PORT,
     DOMAIN,
+    STANDALONE,
 )
 from .helpers import generate_pin, validate_pin
 from .pairing import pairing_markdown
@@ -78,6 +83,43 @@ def _connection_fields() -> dict[vol.Marker, Any]:
         vol.Required(CONF_PIN): selector.TextSelector(),
         vol.Optional(CONF_PLAIN_NAME, default=False): selector.BooleanSelector(),
     }
+
+
+def _bridge_field(hass: HomeAssistant, current: str | None = None) -> dict:
+    """ "Publish as" picker: standalone, or one of core HomeKit's bridges."""
+    bridges = homekit_bridges(hass)
+    if current and current not in bridges:
+        bridges[current] = "Missing HomeKit Bridge"
+    if not bridges:
+        return {}
+    options = [selector.SelectOptionDict(value=STANDALONE, label="Standalone")]
+    options += [
+        selector.SelectOptionDict(value=entry_id, label=f"Add to {title}")
+        for entry_id, title in bridges.items()
+    ]
+    return {
+        vol.Required(CONF_BRIDGE, default=STANDALONE): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=options,
+                mode=selector.SelectSelectorMode.LIST,
+                translation_key=CONF_BRIDGE,
+            )
+        )
+    }
+
+
+def _chosen_bridge(user_input: dict[str, Any]) -> str | None:
+    """The core bridge picked, or None for standalone."""
+    value = user_input.get(CONF_BRIDGE)
+    return value if value and value != STANDALONE else None
+
+
+def _duplicates(hass: HomeAssistant, bridge_id: str, data: dict[str, Any]) -> str:
+    """Entities the bridge already publishes itself, as a readable list."""
+    found = sorted(
+        set(configured_entity_ids(data)) & bridged_entity_ids(hass, bridge_id)
+    )
+    return ", ".join(f"`{entity_id}`" for entity_id in found)
 
 
 def _info_fields() -> dict[vol.Marker, Any]:
@@ -197,9 +239,12 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
         self._type = accessory_type
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._connection, errors = await _validate_connection(
-                self.hass, user_input[CONF_CONNECTION]
-            )
+            if bridge := _chosen_bridge(user_input):
+                self._connection = {CONF_BRIDGE: bridge}
+            else:
+                self._connection, errors = await _validate_connection(
+                    self.hass, user_input[CONF_CONNECTION]
+                )
             if not errors:
                 device_id = user_input.get(CONF_DEVICE)
                 if device_id:
@@ -224,6 +269,7 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                         ]
                     )
                 ),
+                **_bridge_field(self.hass),
                 vol.Required(CONF_CONNECTION): section(
                     vol.Schema(_connection_fields()), {"collapsed": True}
                 ),
@@ -260,9 +306,11 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                     **data,
                     **{key: value for key, value in info.items() if value},
                 }
-                if self._type.zones_key:
-                    return await self.async_step_run_times()
-                return self.async_create_entry(title=self._title, data=self._data)
+                if (bridge := self._data.get(CONF_BRIDGE)) and _duplicates(
+                    self.hass, bridge, self._data
+                ):
+                    return await self.async_step_duplicates()
+                return await self._async_step_after_entities()
         schema = vol.Schema(
             {
                 **self._type.schema(),
@@ -278,6 +326,29 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={"name": self._title},
+        )
+
+    async def _async_step_after_entities(self) -> ConfigFlowResult:
+        assert self._type is not None
+        if self._type.zones_key:
+            return await self.async_step_run_times()
+        return self.async_create_entry(title=self._title, data=self._data)
+
+    async def async_step_duplicates(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Warn that the bridge already publishes some of these entities."""
+        if user_input is not None:
+            return await self._async_step_after_entities()
+        bridge = self._data[CONF_BRIDGE]
+        return self.async_show_form(
+            step_id="duplicates",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "name": self._title,
+                "bridge": homekit_bridges(self.hass).get(bridge, bridge),
+                "entities": _duplicates(self.hass, bridge, self._data),
+            },
         )
 
     async def async_step_run_times(
@@ -346,7 +417,14 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
     def _current(self) -> dict[str, Any]:
         return {**self.config_entry.data, **self.config_entry.options}
 
+    @property
+    def _bridged(self) -> bool:
+        return bool(self._current.get(CONF_BRIDGE))
+
     def _save(self, changes: dict[str, Any]) -> ConfigFlowResult:
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            # A failed entry has no update listener; retry it with the change.
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
         return self.async_create_entry(data={**self.config_entry.options, **changes})
 
     async def async_step_init(
@@ -355,11 +433,13 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
         """Choose what to manage."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=(
-                ["entities", "run_times", "info", "connection", "pairing"]
-                if self._type.zones_key
-                else ["entities", "info", "connection", "pairing"]
-            ),
+            menu_options=[
+                "entities",
+                *(["run_times"] if self._type.zones_key else []),
+                "info",
+                "connection",
+                *([] if self._bridged else ["pairing"]),
+            ],
             description_placeholders={"name": self.config_entry.title},
         )
 
@@ -446,21 +526,36 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
     async def async_step_connection(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Change the port or pairing code."""
+        """Change the bridge, port or pairing code."""
         errors: dict[str, str] = {}
+        current = self._current
         if user_input is not None:
+            if bridge := _chosen_bridge(user_input):
+                return self._save({CONF_BRIDGE: bridge})
             data, errors = await _validate_connection(
                 self.hass,
                 user_input,
                 self.config_entry.entry_id,
-                current_port=int(self._current[CONF_PORT]),
+                current_port=None if self._bridged else current.get(CONF_PORT),
             )
             if not errors:
-                return self._save(data)
+                return self._save({**data, CONF_BRIDGE: None})
+        suggested = {
+            CONF_BRIDGE: current.get(CONF_BRIDGE) or STANDALONE,
+            CONF_PORT: current.get(CONF_PORT) or await _next_free_port(self.hass),
+            CONF_PIN: current.get(CONF_PIN) or generate_pin(),
+            CONF_PLAIN_NAME: current.get(CONF_PLAIN_NAME, False),
+        }
         return self.async_show_form(
             step_id="connection",
             data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(_connection_fields()), user_input or self._current
+                vol.Schema(
+                    {
+                        **_bridge_field(self.hass, current.get(CONF_BRIDGE)),
+                        **_connection_fields(),
+                    }
+                ),
+                user_input or suggested,
             ),
             errors=errors,
         )

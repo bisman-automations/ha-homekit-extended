@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-10-06
+
+### Added
+- **Add accessories to a HomeKit Bridge.** Instead of its own port and pairing
+  code, an accessory can now join one of the bridges from Home Assistant's
+  HomeKit Bridge integration, so it appears in a bridge you've already paired
+  with no extra pairing. Choose **Publish as** when adding an accessory, or
+  move an existing one under **Configure → Bridge, port and pairing code**.
+  - The accessory's ID comes from the bridge's own storage, so Apple Home keeps
+    its room, scenes and automations across restarts.
+  - It is added before the bridge is announced at startup, rejoins when the
+    bridge reloads, and is added or removed live when you change it, without
+    restarting the bridge.
+  - Repairs explain when the bridge also publishes the same entities (they
+    would show up twice), when the bridge is deleted or switched to accessory
+    mode, and when it already has HomeKit's maximum of 150 accessories. Setup
+    also warns about duplicates before you finish.
+  - The **Paired** sensor shows whether the bridge is paired, and diagnostics
+    show which bridge the accessory is in.
+- **Stable instance IDs.** Every service and characteristic keeps a stored ID,
+  using the same storage as the core HomeKit Bridge, so adding or removing
+  zones, outlets, buttons or sensors no longer shifts the IDs Apple Home
+  already knows. Accessories paired with an earlier version keep their current
+  IDs.
+- **No Response when unavailable.** Apple Home shows an accessory as not
+  responding when every entity it mirrors is unavailable, the same as core
+  HomeKit accessories.
+- CI now also runs the tests against Home Assistant's beta and development
+  versions, so changes to core HomeKit show up before they're released.
+
+### Changed
+- HomeKit Extended now depends on Home Assistant's HomeKit Bridge integration
+  and reuses its code for instance IDs. Nothing needs to be set up in it unless
+  you want to add accessories to a bridge.
+
 ## [1.5.0] - 2026-10-06
 
 ### Added
@@ -178,6 +213,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.0.0
 [1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.0

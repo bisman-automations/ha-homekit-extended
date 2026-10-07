@@ -53,6 +53,7 @@ from ..const import (
 from ..helpers import friendly_name
 from .base import (
     IGNORED_STATES,
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     entity_field,
@@ -318,10 +319,14 @@ class ValveGroupAccessory(HomeAccessory):
     SYSTEM_SERVICE: ClassVar[str]
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, self.MODEL)
+        super().__init__(hass, driver, entry, self.MODEL, aid)
         self.valves = valve_entity_ids(self.data.get(CONF_VALVES))
         self.run_times = zone_run_times(self.data, self.valves)
         self.disabled_zones: set[str] = set(self.data.get(CONF_DISABLED_ZONES) or [])

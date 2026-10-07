@@ -18,8 +18,10 @@ real-world device into the single HomeKit accessory Apple Home expects.
 | **Power Strip** | Switches | A separate accessory per switch |
 | **Shower / Faucet** | Valves, one per outlet | A separate accessory per valve |
 
-Each accessory runs next to the HomeKit Bridge integration, not inside it, with
-its own port and pairing code.
+Each accessory is either **standalone**, with its own port and pairing code, or
+**added to one of your HomeKit Bridges** from the core HomeKit Bridge
+integration, so it appears in a bridge you've already paired with no extra
+pairing.
 
 ## Installation
 
@@ -50,18 +52,44 @@ Copy `custom_components/homekit_extended` into your Home Assistant
    fan, or Aqara sensor. Its matching entities are filled in for you on the next
    step, and the accessory is named after the device. You can also skip the
    device and choose entities yourself.
-3. Check the entities, and for irrigation set each zone's run time.
-4. A notification appears with a **pairing QR code**. In Apple Home, choose
-   **Add Accessory** and scan it. The notification disappears once the accessory
-   is paired.
+3. **Choose how to publish it** (shown when you have a HomeKit Bridge): standalone,
+   or added to one of your bridges.
+4. Check the entities, and for irrigation set each zone's run time.
+5. For a standalone accessory, a notification appears with a **pairing QR
+   code**. In Apple Home, choose **Add Accessory** and scan it. The notification
+   disappears once the accessory is paired. An accessory added to a bridge
+   shows up in Apple Home right away.
 
-The port and pairing code are chosen automatically. Change them under
-**Connection** on the first step if you need to.
+The port and pairing code of a standalone accessory are chosen automatically.
+Change them under **Connection** on the first step if you need to.
+
+### Standalone or in a HomeKit Bridge
+
+| | Standalone | In a HomeKit Bridge |
+| --- | --- | --- |
+| Pairing | Its own pairing code | None; uses the bridge's pairing |
+| Port | Its own | The bridge's |
+| Apple Home | Its own accessory | One more accessory in the bridge |
+| Limit | None | 150 accessories per bridge |
+
+In a bridge, the accessory:
+
+- Gets a fixed accessory ID from the bridge's own storage, so Apple Home keeps
+  its room, scenes and automations across restarts.
+- Rejoins automatically when the bridge reloads, and comes back when the
+  bridge starts if it was set up first.
+- Raises a repair if the bridge also publishes one of its entities (so it would
+  show up twice), if the bridge is deleted or switched to accessory mode, or if
+  the bridge is full. Setup warns about duplicates before you finish, too.
+
+Moving an accessory into or out of a bridge adds it to Apple Home as a new
+accessory, so its room and automations need setting up again.
 
 ### Managing accessories
 
 Each accessory gets a device page under HomeKit Extended with a **Paired**
-sensor, so you can see at a glance which ones are added to Apple Home. Choose
+sensor, so you can see at a glance which ones are added to Apple Home (for an
+accessory in a bridge, whether the bridge is paired). Choose
 **Configure** on the entry to:
 
 - **Entities.** Change which entities the accessory mirrors.
@@ -74,9 +102,10 @@ sensor, so you can see at a glance which ones are added to Apple Home. Choose
   zones), the controller's details are used, and its MAC address stands in for
   a missing serial number. The screen shows what each empty field will use, and
   changes apply without re-pairing.
-- **Port and pairing code.**
-- **Pairing.** Show the QR code again, or reset pairing so the accessory can be
-  added to a different home.
+- **Bridge, port and pairing code.** Move the accessory into or out of a
+  HomeKit Bridge, or change a standalone accessory's port and pairing code.
+- **Pairing** (standalone). Show the QR code again, or reset pairing so the
+  accessory can be added to a different home.
 
 Rename an accessory by renaming its entry. Diagnostics, including the accessory
 exactly as HomeKit sees it, can be downloaded from the entry's menu.
@@ -164,14 +193,21 @@ Switches or input booleans as the numbered outlets of one **Outlet** accessory.
 
 ## Re-pairing
 
-Apple Home caches an accessory's structure. If you add or remove sensors or
-zones, you may need to remove the accessory from Apple Home and add it again. A
-reset is available under **Configure → Pairing**.
+Every service keeps a stored instance ID, the same way the core HomeKit Bridge
+does, so adding or removing zones, outlets, buttons or sensors doesn't shuffle
+the ones Apple Home already knows. Accessories paired with an earlier version
+keep the IDs they had. If Apple Home still shows an old layout, remove the
+accessory from Apple Home and add it again. For standalone accessories a reset
+is available under **Configure → Pairing**.
+
+Apple Home shows an accessory as **No Response** when every entity it mirrors
+is unavailable.
 
 ## Tips
 
 - **Avoid duplicates.** Leave these entities out of the built-in HomeKit
-  Bridge's filter, or Apple Home will show them twice.
+  Bridge's filter, or Apple Home will show them twice. For accessories in a
+  bridge, HomeKit Extended raises a repair when this happens.
 - **Watch for port conflicts.** The setup flow rejects ports already used by
   another accessory or bridge, including the old standalone integrations, or
   that something else on the host is listening on. If a port becomes busy

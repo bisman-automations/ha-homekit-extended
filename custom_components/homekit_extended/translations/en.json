@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Add a HomeKit accessory",
-        "description": "Each accessory is added to Apple Home on its own, with its own pairing code.",
+        "description": "Each accessory is added to Apple Home on its own with its own pairing code, or into one of your HomeKit Bridges.",
         "menu_options": {
           "irrigation": "Irrigation system",
           "ceiling_fan": "Ceiling fan with light",
@@ -28,6 +28,10 @@
       "run_times": {
         "title": "Run times for {name}",
         "description": "How long each zone runs when started from Apple Home, in seconds. Run times changed in Apple Home are saved too.\n\n{details}"
+      },
+      "duplicates": {
+        "title": "Already in {bridge}",
+        "description": "{bridge} also publishes {entities} as separate accessories, so they would show up twice in Apple Home.\n\nTo avoid that, open the HomeKit Bridge integration's options for {bridge} and exclude them. You can continue now and do that afterwards."
       },
       "entities": {
         "title": "Choose entities for {name}",
@@ -109,16 +113,18 @@
         "description": "Valves become the zones of one Irrigation System. Each zone has its own run time and closes by itself; turning the system on runs every zone in turn.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -137,16 +143,18 @@
         "description": "A fan and its light as one accessory, instead of two separate tiles.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -165,16 +173,18 @@
         "description": "Event entities become HomeKit buttons with single, double and long press, ready for Home automations.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -193,16 +203,18 @@
         "description": "Motion, contact, leak, temperature, humidity, light level and battery from one device as one accessory.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -221,16 +233,18 @@
         "description": "All pollutant readings on one Air Quality sensor, rated by the worst one.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -249,16 +263,18 @@
         "description": "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -277,16 +293,18 @@
         "description": "Several switches as the numbered outlets of one accessory.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -305,16 +323,18 @@
         "description": "Valves become the outlets of one Shower or Faucet. Turning it on opens them all.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
-          "device": "Device"
+          "device": "Device",
+          "bridge": "Publish as"
         },
         "data_description": {
           "name": "Shown in Apple Home. Defaults to the device's name.",
-          "device": "Optional. Its matching entities are selected on the next step."
+          "device": "Optional. Its matching entities are selected on the next step.",
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair."
         },
         "sections": {
           "connection": {
             "name": "Connection",
-            "description": "Usually fine as suggested.",
+            "description": "For standalone accessories. Usually fine as suggested.",
             "data": {
               "port": "HomeKit port",
               "pin": "Pairing code",
@@ -352,14 +372,14 @@
           "entities": "Entities",
           "run_times": "Run times",
           "info": "Accessory information",
-          "connection": "Port and pairing code",
+          "connection": "Bridge, port and pairing code",
           "pairing": "Pairing"
         },
         "menu_option_descriptions": {
           "entities": "Change which entities the accessory mirrors.",
           "run_times": "Set how long each zone runs.",
           "info": "Change the manufacturer, model, serial number and firmware shown in Apple Home.",
-          "connection": "Change the HomeKit port or pairing code.",
+          "connection": "Move the accessory into or out of a HomeKit Bridge, or change its port or pairing code.",
           "pairing": "Show the pairing QR code, or reset pairing."
         }
       },
@@ -441,14 +461,16 @@
         }
       },
       "connection": {
-        "title": "Port and pairing code",
-        "description": "Changes take effect right away. A new pairing code only matters when pairing again.",
+        "title": "Bridge, port and pairing code",
+        "description": "Changes take effect right away. The port and pairing code only apply to standalone accessories, and a new pairing code only matters when pairing again. Moving an accessory into or out of a bridge adds it to Apple Home as a new accessory, so rooms and automations need setting up again.",
         "data": {
+          "bridge": "Publish as",
           "port": "HomeKit port",
           "pin": "Pairing code",
           "plain_name": "Advertise without ID suffix"
         },
         "data_description": {
+          "bridge": "Standalone accessories have their own pairing code. Adding to one of your HomeKit Bridges puts the accessory in a bridge already paired with Apple Home, so there's nothing more to pair.",
           "port": "Each accessory needs its own port. A free one is suggested.",
           "pin": "8 digits as 123-45-678. A random code is suggested.",
           "plain_name": "Show just the name (\"Irrigation System\") when Apple Home and Home Assistant discover the accessory, instead of the name plus part of its ID (\"Irrigation System 8D111D\"). Falls back to the ID suffix if another device already uses the name."
@@ -486,6 +508,29 @@
         "shower_head": "Shower head",
         "faucet": "Faucet"
       }
+    },
+    "bridge": {
+      "options": {
+        "standalone": "Standalone, with its own pairing code"
+      }
+    }
+  },
+  "issues": {
+    "bridge_missing": {
+      "title": "{name} has no HomeKit Bridge",
+      "description": "{name} was added to a HomeKit Bridge that has been deleted or switched to accessory mode, so it isn't in Apple Home right now.\n\nOpen HomeKit Extended, choose **Configure** on {name}, then **Bridge, port and pairing code** to pick another bridge or publish it standalone."
+    },
+    "bridge_unsupported": {
+      "title": "{name} can't join a HomeKit Bridge in this version of Home Assistant",
+      "description": "This version of Home Assistant's HomeKit Bridge works differently from what HomeKit Extended expects, so {name} can't be added to a bridge. Update HomeKit Extended, or open its options and publish {name} standalone for now."
+    },
+    "bridge_full": {
+      "title": "{bridge} is full",
+      "description": "HomeKit allows 150 accessories per bridge, and {bridge} already has that many, so {name} wasn't added. Exclude some entities from {bridge}, or publish {name} standalone."
+    },
+    "duplicate_entities": {
+      "title": "{name} duplicates accessories in {bridge}",
+      "description": "{bridge} also publishes {entities} as separate accessories, so they show up twice in Apple Home. Open the HomeKit Bridge integration's options for {bridge} and exclude them."
     }
   },
   "entity": {

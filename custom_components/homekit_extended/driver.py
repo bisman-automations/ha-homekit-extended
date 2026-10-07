@@ -13,6 +13,11 @@ from pyhap.accessory_driver import AccessoryDriver
 from zeroconf import IPVersion, NonUniqueNameException, ServiceInfo
 
 from homeassistant.components import network
+from homeassistant.components.homekit.iidmanager import (
+    IID_MANAGER_STORAGE_VERSION,
+    AccessoryIIDStorage,
+    IIDStorage,
+)
 from homeassistant.components.zeroconf import async_get_async_instance
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -29,6 +34,30 @@ LISTEN_ADDRESS = "0.0.0.0"
 def persist_path(hass: HomeAssistant, entry: ConfigEntry) -> Path:
     """Return where HAP-python keeps pairing state for an entry."""
     return Path(hass.config.path(f".storage/{DOMAIN}.{entry.entry_id}.state"))
+
+
+def iid_storage_key(entry_id: str) -> str:
+    """Storage key holding an entry's instance IDs."""
+    return f"{DOMAIN}.{entry_id}.iids"
+
+
+class ExtendedIIDStorage(AccessoryIIDStorage):
+    """Core HomeKit's stable instance-ID storage, kept under our own key.
+
+    A fresh store hands out IDs in the order services are added, exactly like
+    HAP-python's default, so accessories paired before IDs were stored keep
+    the ones Apple Home already knows.
+    """
+
+    async def async_initialize(self) -> None:
+        """Load stored IDs from this integration's storage file."""
+        self.store = IIDStorage(
+            self.hass, IID_MANAGER_STORAGE_VERSION, iid_storage_key(self.entry_id)
+        )
+        if raw := await self.store.async_load():
+            self.allocations = raw.get("allocations", {})
+            for aid, allocations in self.allocations.items():
+                self.allocated_iids[aid] = sorted(allocations.values())
 
 
 # pyhap names the service "<name> <last 6 of the accessory id>._hap._tcp.local."
@@ -125,6 +154,7 @@ class HomeKitAccessoryServer:
         self._on_pairing_changed = on_pairing_changed
         self.driver: ExtendedDriver | None = None
         self.accessory: Accessory | None = None
+        self.iid_storage: ExtendedIIDStorage | None = None
         self._published = self._snapshot()
 
     def _snapshot(self) -> tuple[str, dict[str, Any]]:
@@ -184,6 +214,8 @@ class HomeKitAccessoryServer:
         async_zeroconf = await async_get_async_instance(self.hass)
         advertised = await network.async_get_announce_addresses(self.hass)
         persist_file = persist_path(self.hass, self.entry)
+        self.iid_storage = ExtendedIIDStorage(self.hass, self.entry.entry_id)
+        await self.iid_storage.async_initialize()
 
         def _changed() -> None:
             self.hass.loop.call_soon_threadsafe(self._on_pairing_changed)
@@ -206,6 +238,7 @@ class HomeKitAccessoryServer:
             return driver
 
         self.driver = await self.hass.async_add_executor_job(_create_driver)
+        self.driver.iid_storage = self.iid_storage
         # Accessories subscribe to HA state events, so build them on the loop.
         self.accessory = self.accessory_type.factory(self.hass, self.driver, self.entry)
         await self.hass.async_add_executor_job(
@@ -244,3 +277,5 @@ class HomeKitAccessoryServer:
             await accessory.async_stop()  # type: ignore[attr-defined]
         if driver is not None:
             await driver.async_stop()
+        if self.iid_storage is not None:
+            await self.iid_storage.async_save()

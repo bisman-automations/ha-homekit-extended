@@ -18,6 +18,7 @@ from ..const import CONF_OUTLETS
 from ..helpers import friendly_name
 from .base import (
     IGNORED_STATES,
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     entity_field,
@@ -50,10 +51,14 @@ class PowerStripAccessory(HomeAccessory):
     category = CATEGORY_OUTLET
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, POWER_STRIP.model)
+        super().__init__(hass, driver, entry, POWER_STRIP.model, aid)
         self.outlets = entity_list(self.data.get(CONF_OUTLETS))
         self._chars: dict[str, tuple[Characteristic, Characteristic]] = {}
 

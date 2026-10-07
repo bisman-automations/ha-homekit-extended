@@ -23,6 +23,7 @@ from ..const import (
     CONF_TEMPERATURE_SENSOR,
 )
 from .base import (
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     drop_empty,
@@ -93,10 +94,14 @@ class MultiSensorAccessory(HomeAccessory):
     category = CATEGORY_SENSOR
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, MULTI_SENSOR.model)
+        super().__init__(hass, driver, entry, MULTI_SENSOR.model, aid)
         handlers = {}
         primary = None
         for key, (_, build, suffix) in SENSORS.items():

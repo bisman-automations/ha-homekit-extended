@@ -26,6 +26,7 @@ from ..const import (
     CONF_VOC_SENSOR,
 )
 from .base import (
+    STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
     drop_empty,
@@ -95,10 +96,14 @@ class AirQualityAccessory(HomeAccessory):
     category = CATEGORY_SENSOR
 
     def __init__(
-        self, hass: HomeAssistant, driver: AccessoryDriver, entry: ConfigEntry
+        self,
+        hass: HomeAssistant,
+        driver: AccessoryDriver,
+        entry: ConfigEntry,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory."""
-        super().__init__(hass, driver, entry, AIR_QUALITY.model)
+        super().__init__(hass, driver, entry, AIR_QUALITY.model, aid)
         self.aqi_sensor: str | None = self.data.get(CONF_AQI_SENSOR)
         configured = {
             key: spec for key, spec in POLLUTANTS.items() if self.data.get(key)

@@ -11,9 +11,11 @@ from typing import Any
 from pyhap.accessory import Accessory
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.characteristic import Characteristic
+from pyhap.const import STANDALONE_AID
 from pyhap.service import Service
 import voluptuous as vol
 
+from homeassistant.components.homekit.accessories import HomeIIDManager
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import (
@@ -49,7 +51,7 @@ CHAR_SERVICE_LABEL_NAMESPACE = "ServiceLabelNamespace"
 SERV_SERVICE_LABEL = "ServiceLabel"
 LABEL_NAMESPACE_ARABIC_NUMERALS = 1
 
-AccessoryFactory = Callable[[HomeAssistant, AccessoryDriver, ConfigEntry], Accessory]
+AccessoryFactory = Callable[..., Accessory]
 Detector = Callable[[HomeAssistant, list[er.RegistryEntry]], dict[str, Any]]
 Normalizer = Callable[[dict[str, Any]], tuple[dict[str, Any], dict[str, str]]]
 
@@ -103,7 +105,7 @@ def firmware_version(raw: Any) -> str | None:
 ENTITY_ID_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
 
-def _configured_entity_ids(data: dict[str, Any]) -> list[str]:
+def configured_entity_ids(data: dict[str, Any]) -> list[str]:
     """Entity ids in an entry's config, in order (lists and legacy dicts too)."""
     found: list[str] = []
     for value in data.values():
@@ -128,7 +130,7 @@ def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, s
     registry = er.async_get(hass)
     device = devices.async_get(data[CONF_DEVICE]) if data.get(CONF_DEVICE) else None
     if device is None:
-        for entity_id in _configured_entity_ids(data):
+        for entity_id in configured_entity_ids(data):
             entry = registry.async_get(entity_id)
             if entry and entry.device_id:
                 device = devices.async_get(entry.device_id)
@@ -295,7 +297,15 @@ def drop_empty(values: dict[str, Any]) -> dict[str, Any]:
 
 
 class HomeAccessory(Accessory):
-    """Accessory that mirrors Home Assistant entities."""
+    """Accessory that mirrors Home Assistant entities.
+
+    Instance IDs come from Home Assistant's HomeKit IID storage, the same as
+    core HomeKit Bridge accessories, so a service keeps its ID when zones,
+    outlets or buttons are added or removed and Apple Home keeps its settings.
+    """
+
+    # Read by core HomeKit's diagnostics when the accessory is in its bridge.
+    entity_id: str | None = None
 
     def __init__(
         self,
@@ -303,13 +313,22 @@ class HomeAccessory(Accessory):
         driver: AccessoryDriver,
         entry: ConfigEntry,
         model: str,
+        aid: int = STANDALONE_AID,
     ) -> None:
         """Initialize the accessory and its information service."""
-        super().__init__(driver=driver, display_name=entry.title)
+        iid_storage = getattr(driver, "iid_storage", None)
+        super().__init__(
+            driver=driver,
+            display_name=entry.title,
+            aid=aid,
+            iid_manager=HomeIIDManager(iid_storage) if iid_storage else None,
+        )
         self.hass = hass
         self.entry = entry
         self.data: dict[str, Any] = {**entry.data, **entry.options}
+        self.config = self.data
         self._subscriptions: list[CALLBACK_TYPE] = []
+        self._tracked: list[str] = []
         self._default_model = model
         info = accessory_info(
             self.data, model, entry.entry_id, source_device_info(hass, self.data)
@@ -338,6 +357,17 @@ class HomeAccessory(Accessory):
         """Return the accessory name."""
         return self.display_name
 
+    @property
+    def available(self) -> bool:
+        """Show "No Response" in Apple Home when every entity is unavailable."""
+        if not self._tracked:
+            return True
+        return any(
+            (state := self.hass.states.get(entity_id)) is not None
+            and state.state != STATE_UNAVAILABLE
+            for entity_id in self._tracked
+        )
+
     def add_named_service(
         self,
         service_type: str,
@@ -347,7 +377,15 @@ class HomeAccessory(Accessory):
         label_index: int | None = None,
         unique_id: str | None = None,
     ) -> Service:
-        """Add a service carrying Name and ConfiguredName."""
+        """Add a service carrying Name and ConfiguredName.
+
+        Repeated service types need a unique_id so each keeps its own stored
+        instance IDs; the name stands in when the caller didn't give one.
+        """
+        if unique_id is None and any(
+            existing.display_name == service_type for existing in self.services
+        ):
+            unique_id = name
         extra = [CHAR_SERVICE_LABEL_INDEX] if label_index is not None else []
         service = self.add_preload_service(
             service_type,
@@ -378,6 +416,7 @@ class HomeAccessory(Accessory):
         handlers = {entity_id: h for entity_id, h in handlers.items() if entity_id}
         if not handlers:
             return
+        self._tracked.extend(e for e in handlers if e not in self._tracked)
         for entity_id, handler in handlers.items():
             if (state := self.hass.states.get(entity_id)) is not None:
                 handler(state)
@@ -402,6 +441,10 @@ class HomeAccessory(Accessory):
                 domain, service, {ATTR_ENTITY_ID: entity_id, **data}, blocking=False
             )
         )
+
+    async def stop(self) -> None:
+        """Called by the driver (or core's bridge) when it stops."""
+        await self.async_stop()
 
     async def async_stop(self) -> None:
         """Release Home Assistant listeners."""
