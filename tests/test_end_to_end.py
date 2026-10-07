@@ -180,6 +180,9 @@ async def test_end_to_end(hass: HomeAssistant, mock_async_zeroconf) -> None:
     # Core bridge restarts (reload): ours is there again with the same AID.
     hass.states.async_set("valve.front", "closed")
     await pairing.close()
+    # The pairing is saved in the background; make sure it's on disk before
+    # the bridge restarts and reads it back (CI can be slower than that).
+    await hass.async_add_executor_job(core_driver.persist)
     with patch("homeassistant.components.homekit.async_show_setup_message"):
         assert await hass.config_entries.async_reload(core.entry_id)
         await hass.async_block_till_done()
