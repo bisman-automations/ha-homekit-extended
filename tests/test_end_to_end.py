@@ -18,6 +18,7 @@ from aiohomekit.model.categories import Categories
 from aiohomekit.model.feature_flags import FeatureFlags
 from aiohomekit.model.status_flags import StatusFlags
 from aiohomekit.zeroconf import HomeKitService
+from pyhap.const import CATEGORY_BRIDGE
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -253,5 +254,51 @@ async def test_end_to_end(hass: HomeAssistant, mock_async_zeroconf) -> None:
     assert [v.get("primary", False) for v in valves] == [True, False]
     await pairing.close()
     await hass.config_entries.async_unload(zones.entry_id)
+
+    # Zones as separate accessories: our own bridge, one accessory per zone.
+    yard_port = _free_port()
+    yard = MockConfigEntry(
+        domain=DOMAIN,
+        title="Yard Bridge",
+        data={
+            "accessory_type": "irrigation",
+            "port": yard_port,
+            "pin": PIN,
+            "valves": ["valve.front", "valve.back"],
+            "zone_layout": "accessories",
+        },
+    )
+    yard.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(yard.entry_id)
+    await hass.async_block_till_done()
+    yard_server = server(hass, yard.entry_id)
+    assert yard_server.published.category == CATEGORY_BRIDGE  # QR says bridge
+    pairing = await _pair(hass, yard_server.driver, yard_port, PIN)
+    accessories = await pairing.list_accessories_and_characteristics()
+    assert accessories[0]["aid"] == 1  # the bridge
+    zone_accessories = accessories[1:]
+    assert len(zone_accessories) == 2
+    for zone in zone_accessories:
+        (valve,) = _by_type(zone, VALVE)
+        assert valve.get("primary") is True
+    open_calls = async_mock_service(hass, "valve", "open_valve")
+    by_name = {
+        next(
+            c["value"] for c in valve["characteristics"] if c["type"].upper() == NAME
+        ): (
+            zone["aid"],
+            valve,
+        )
+        for zone in zone_accessories
+        for valve in _by_type(zone, VALVE)
+    }
+    assert set(by_name) == {"Front Lawn", "Back Lawn"}
+    aid, back = by_name["Back Lawn"]
+    active = next(c for c in back["characteristics"] if c["type"].upper() == ACTIVE)
+    await pairing.put_characteristics([(aid, active["iid"], 1)])
+    await hass.async_block_till_done()
+    assert open_calls[-1].data["entity_id"] == "valve.back"
+    await pairing.close()
+    await hass.config_entries.async_unload(yard.entry_id)
     await hass.config_entries.async_unload(core.entry_id)
     await hass.async_block_till_done()

@@ -444,3 +444,29 @@ async def test_options_reject_missing_bridge(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"bridge": "bridge_missing"}
     assert entry.options.get("bridge") is None
+
+
+async def test_zone_accessories_in_core_bridge(hass: HomeAssistant) -> None:
+    """In a core bridge, each zone joins it as an accessory of its own."""
+    _valves(hass)
+    core = await _core_bridge(hass)
+    entry = await _bridged(hass, core, zone_layout="accessories")
+    ours = server(hass, entry.entry_id)
+    assert ours.attached
+    bridge = _bridge(hass, core)
+    zones = [acc for acc in bridge.accessories.values() if acc in ours.published]
+    assert sorted(z.entity_id for z in zones) == sorted(VALVES)
+    storage = core.runtime_data.homekit.aid_storage
+    for zone in zones:
+        assert storage.allocations[f"{aid_key(entry.entry_id)}.{zone.entity_id}"] == (
+            zone.aid
+        )
+    assert not ir.async_get(hass).async_get_issue(
+        DOMAIN, f"duplicate_entities_{entry.entry_id}"
+    )
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    assert not any(z.aid in bridge.accessories for z in zones)
+    assert not any(
+        key.startswith(aid_key(entry.entry_id)) for key in storage.allocations
+    )

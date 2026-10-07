@@ -9,9 +9,12 @@ Everything here maps onto native HomeKit behavior:
 - A valve that is unavailable shows as a fault (StatusFault).
 - An optional pump or master valve runs while any zone is open. It is driven
   from Home Assistant and never exposed to HomeKit.
-- An irrigation system can instead be published as plain, numbered Valve
-  services without the Irrigation System around them. Apple Home then shows
-  one tile and offers to show each zone as a tile of its own.
+- An irrigation system's zones can be laid out three ways: as zones of an
+  Irrigation System (the default); as plain, numbered Valve services on one
+  accessory, which Apple Home can show as separate tiles; or as one accessory
+  per zone, published as a HomeKit bridge (or as separate accessories in a
+  core HomeKit Bridge). In every layout this class coordinates the zones, so
+  one zone at a time, the pump and controller countdowns work the same.
 - When a valve's device also has a run-time number and an end-time sensor
   (Rain Bird Extended, for example), the controller owns the run: run times
   read and write that number, the countdown comes from that sensor, and the
@@ -22,14 +25,17 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
+from pyhap.accessory import Accessory
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.characteristic import Characteristic
 from pyhap.const import CATEGORY_FAUCET, CATEGORY_SPRINKLER
 import voluptuous as vol
 
+from homeassistant.components.homekit.accessories import HomeIIDManager
 from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -37,6 +43,7 @@ from homeassistant.const import (
     SERVICE_OPEN_VALVE,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    STATE_UNAVAILABLE,
 )
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers import entity_registry as er, selector
@@ -51,6 +58,7 @@ from ..const import (
     CONF_USE_CONTROLLER,
     CONF_VALVE_TYPE,
     CONF_VALVES,
+    CONF_ZONE_LAYOUT,
     DEFAULT_DURATION,
     VALVE_OPEN_STATES,
 )
@@ -60,9 +68,13 @@ from .base import (
     STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
+    accessory_info,
+    add_named_service,
     entity_field,
     entity_list,
     find_entities,
+    set_accessory_info,
+    source_device_info,
 )
 from .zone_links import (
     ZoneLinks,
@@ -103,6 +115,19 @@ HK_VALVE_TYPES = {"irrigation": 1, "shower_head": 2, "faucet": 3}
 FAUCET_VALVE_TYPES = ("shower_head", "faucet")
 MASTER_DOMAINS = ["switch", "input_boolean", "valve"]
 
+# How an irrigation system's zones appear in HomeKit.
+LAYOUT_SYSTEM = "system"
+LAYOUT_VALVES = "valves"
+LAYOUT_ACCESSORIES = "accessories"
+ZONE_LAYOUTS = (LAYOUT_SYSTEM, LAYOUT_VALVES, LAYOUT_ACCESSORIES)
+
+
+def zone_layout(data: dict[str, Any]) -> str:
+    """The configured layout; 2.1.0's "separate zones" switch means valves."""
+    if (layout := data.get(CONF_ZONE_LAYOUT)) in ZONE_LAYOUTS:
+        return layout
+    return LAYOUT_VALVES if data.get(CONF_SEPARATE_ZONES) else LAYOUT_SYSTEM
+
 
 def valve_entity_ids(raw: Any) -> list[str]:
     """Normalize stored valves (plain ids or legacy {"entity_id": ...} mappings)."""
@@ -130,7 +155,13 @@ def _irrigation_schema() -> dict[vol.Marker, Any]:
         vol.Required(CONF_ONE_AT_A_TIME, default=True): selector.BooleanSelector(),
         vol.Optional(CONF_MASTER): entity_field(MASTER_DOMAINS),
         vol.Required(CONF_USE_CONTROLLER, default=True): selector.BooleanSelector(),
-        vol.Required(CONF_SEPARATE_ZONES, default=False): selector.BooleanSelector(),
+        vol.Required(CONF_ZONE_LAYOUT, default=LAYOUT_SYSTEM): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=list(ZONE_LAYOUTS),
+                translation_key=CONF_ZONE_LAYOUT,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
     }
 
 
@@ -159,6 +190,9 @@ def _detect(hass: HomeAssistant, entries: list[er.RegistryEntry]) -> dict[str, A
 def _normalize(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
     data[CONF_VALVES] = valve_entity_ids(data.get(CONF_VALVES))
     data[CONF_DEFAULT_DURATION] = int(data.get(CONF_DEFAULT_DURATION) or 0)
+    if CONF_ZONE_LAYOUT in data:
+        # Replaces 2.1.0's switch; clear it so it can't override the layout.
+        data[CONF_SEPARATE_ZONES] = False
     if CONF_ONE_AT_A_TIME in data or CONF_MASTER in data:
         data[CONF_MASTER] = data.get(CONF_MASTER) or None
     errors: dict[str, str] = {}
@@ -317,6 +351,42 @@ class Zone:
         return self.configured.value == HK_CONFIGURED
 
 
+class ZoneAccessory(Accessory):
+    """One irrigation zone as an accessory of its own.
+
+    It only holds the zone's Valve service; the irrigation system that
+    created it handles everything the valve does.
+    """
+
+    category = CATEGORY_SPRINKLER
+    homekit_extended = True
+
+    def __init__(
+        self, group: ValveGroupAccessory, entity_id: str, aid: int, name: str
+    ) -> None:
+        """Initialize the zone accessory and its information service."""
+        storage = getattr(group.driver, "iid_storage", None)
+        super().__init__(
+            driver=group.driver,
+            display_name=name,
+            aid=aid,
+            iid_manager=HomeIIDManager(storage) if storage else None,
+        )
+        self.hass = group.hass
+        self.entity_id = entity_id
+        self.config = group.config
+        set_accessory_info(self, group.zone_info(entity_id, group.data))
+
+    def add_protocol_version_service(self) -> None:
+        """Zone accessories are always bridged; they don't carry this service."""
+
+    @property
+    def available(self) -> bool:
+        """Show "No Response" when the zone's valve is unavailable."""
+        state = self.hass.states.get(self.entity_id)
+        return state is not None and state.state != STATE_UNAVAILABLE
+
+
 class ValveGroupAccessory(HomeAccessory):
     """A parent service with one linked Valve service per Home Assistant valve."""
 
@@ -329,9 +399,25 @@ class ValveGroupAccessory(HomeAccessory):
         driver: AccessoryDriver,
         entry: ConfigEntry,
         aid: int = STANDALONE_AID,
+        aid_for: Callable[[str], int] | None = None,
     ) -> None:
-        """Initialize the accessory."""
-        super().__init__(hass, driver, entry, self.MODEL, aid)
+        """Initialize the accessory.
+
+        aid_for gives each zone accessory its AID; it is needed for the
+        "separate accessories" layout and ignored otherwise.
+        """
+        self.layout = self.zone_layout({**entry.data, **entry.options})
+        if self.layout == LAYOUT_ACCESSORIES and aid_for is None:
+            self.layout = LAYOUT_VALVES
+        super().__init__(
+            hass,
+            driver,
+            entry,
+            self.MODEL,
+            aid,
+            published=self.layout != LAYOUT_ACCESSORIES,
+        )
+        self.zone_accessories: dict[str, ZoneAccessory] = {}
         self.valves = valve_entity_ids(self.data.get(CONF_VALVES))
         self.run_times = zone_run_times(self.data, self.valves)
         self.disabled_zones: set[str] = set(self.data.get(CONF_DISABLED_ZONES) or [])
@@ -353,7 +439,18 @@ class ValveGroupAccessory(HomeAccessory):
         self._system_in_use: Characteristic | None = None
         self._system_remaining: Characteristic | None = None
 
-        if self.separate_zones():
+        if self.layout == LAYOUT_ACCESSORIES:
+            assert aid_for is not None
+            for entity_id in self.valves:
+                zone = ZoneAccessory(
+                    self,
+                    entity_id,
+                    aid_for(entity_id),
+                    friendly_name(hass, entity_id),
+                )
+                self.zone_accessories[entity_id] = zone
+                self._add_zone(entity_id, owner=zone).is_primary_service = True
+        elif self.layout == LAYOUT_VALVES:
             # Numbered valves with no parent service.
             self.add_service_label()
             for index, entity_id in enumerate(self.valves, start=1):
@@ -408,11 +505,31 @@ class ValveGroupAccessory(HomeAccessory):
     def start_all(self) -> None:
         """Handle the parent service being turned on."""
 
-    def separate_zones(self) -> bool:
-        """Publish zones as numbered valves instead of under a parent service."""
-        return False
+    def zone_layout(self, data: dict[str, Any]) -> str:
+        """How zones appear in HomeKit; only irrigation systems can change it."""
+        return LAYOUT_SYSTEM
 
-    def _add_zone(self, entity_id: str, label_index: int | None = None) -> Any:
+    def published_accessories(self) -> list[Accessory]:
+        """The zone accessories in the "separate accessories" layout."""
+        if self.layout == LAYOUT_ACCESSORIES:
+            return list(self.zone_accessories.values())
+        return [self]
+
+    def zone_info(self, entity_id: str, config: dict[str, Any]) -> dict[str, str]:
+        """A zone accessory's information: its own device's, then the system's."""
+        return accessory_info(
+            config,
+            self._default_model,
+            entity_id,
+            source_device_info(self.hass, {CONF_VALVES: [entity_id]}),
+        )
+
+    def _add_zone(
+        self,
+        entity_id: str,
+        label_index: int | None = None,
+        owner: Accessory | None = None,
+    ) -> Any:
         links = self.links.get(entity_id, ZoneLinks())
         duration = self.run_times[entity_id]
         duration_props = DURATION_PROPERTIES
@@ -429,7 +546,8 @@ class ValveGroupAccessory(HomeAccessory):
                 **DURATION_PROPERTIES,
                 "maxValue": max(duration_props["maxValue"], LINKED_REMAINING_MAX),
             }
-        service = self.add_named_service(
+        service = add_named_service(
+            owner or self,
             "Valve",
             friendly_name(self.hass, entity_id),
             [
@@ -582,6 +700,8 @@ class ValveGroupAccessory(HomeAccessory):
     def apply_in_place(self, config: dict[str, Any]) -> None:
         """Apply info, run times and enabled zones without re-publishing."""
         super().apply_in_place(config)
+        for entity_id, zone_accessory in self.zone_accessories.items():
+            set_accessory_info(zone_accessory, self.zone_info(entity_id, config))
         run_times = zone_run_times(config, self.valves)
         self.disabled_zones = set(config.get(CONF_DISABLED_ZONES) or [])
         for entity_id, zone in self._zones.items():
@@ -804,9 +924,9 @@ class IrrigationAccessory(ValveGroupAccessory):
         """Turning the system on runs every enabled zone in turn."""
         self._start_sequence()
 
-    def separate_zones(self) -> bool:
-        """Plain valves let Apple Home show each zone as its own tile."""
-        return bool(self.data.get(CONF_SEPARATE_ZONES, False))
+    def zone_layout(self, data: dict[str, Any]) -> str:
+        """Irrigation zones can be valves or accessories of their own."""
+        return zone_layout(data)
 
 
 class FaucetAccessory(ValveGroupAccessory):
@@ -838,6 +958,7 @@ IRRIGATION = AccessoryType(
     factory=IrrigationAccessory,
     entity_keys=(CONF_VALVES, CONF_MASTER),
     zones_key=CONF_VALVES,
+    zone_accessories=True,
 )
 
 FAUCET = AccessoryType(

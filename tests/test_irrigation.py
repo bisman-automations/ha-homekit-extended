@@ -310,3 +310,79 @@ async def test_switching_layout_republishes(hass: HomeAssistant) -> None:
     acc = server(hass, entry.entry_id).accessory
     assert acc is not first
     assert "IrrigationSystem" not in services_by_type(acc)
+
+
+async def test_zone_accessories_layout(hass: HomeAssistant) -> None:
+    """Each zone its own accessory, published as a bridge on our own pairing."""
+    from pyhap.accessory import Bridge
+
+    hass.states.async_set("switch.pump", "off")
+    entry = await _setup(hass, zone_layout="accessories", master="switch.pump")
+    ours = server(hass, entry.entry_id)
+    bridge = ours.published
+    assert isinstance(bridge, Bridge)
+    assert bridge.display_name == "Sprinklers"
+    zones = list(bridge.accessories.values())
+    assert [z.display_name for z in zones] == ["Front Lawn", "Back Lawn"]
+    for zone in zones:
+        (valve,) = services_by_type(zone)["Valve"]
+        assert valve.is_primary_service
+        assert char(valve, "ValveType").value == 1
+        info = zone.get_service("AccessoryInformation")
+        assert info.get_characteristic("SerialNumber").value == zone.entity_id
+    assert "IrrigationSystem" not in services_by_type(ours.accessory)
+
+    # The system still coordinates: one zone at a time and the pump.
+    open_calls = async_mock_service(hass, "valve", "open_valve")
+    close_calls = async_mock_service(hass, "valve", "close_valve")
+    pump_on = async_mock_service(hass, "switch", "turn_on")
+    front, back = (services_by_type(z)["Valve"][0] for z in zones)
+    char(front, "Active").client_update_value(1)
+    char(back, "Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in open_calls] == ["valve.front", "valve.back"]
+    assert [c.data["entity_id"] for c in close_calls] == ["valve.front"]
+    assert pump_on
+
+    # Unavailable zone: that zone shows No Response, the other doesn't.
+    hass.states.async_set("valve.front", "unavailable")
+    assert [z.available for z in zones] == [False, True]
+
+
+async def test_zone_aids_are_stable(hass: HomeAssistant) -> None:
+    """Zones keep their accessory IDs across reloads and when zones are added."""
+    hass.states.async_set("valve.side", "closed", {"friendly_name": "Side"})
+    entry = await _setup(hass, zone_layout="accessories")
+    before = {
+        z.entity_id: z.aid
+        for z in server(hass, entry.entry_id).published.accessories.values()
+    }
+    hass.config_entries.async_update_entry(
+        entry, options={"valves": ["valve.side", *VALVES]}
+    )
+    await hass.async_block_till_done()
+    after = {
+        z.entity_id: z.aid
+        for z in server(hass, entry.entry_id).published.accessories.values()
+    }
+    assert {k: after[k] for k in before} == before
+    assert len(set(after.values())) == 3
+
+
+async def test_options_show_layout_from_2_1(hass: HomeAssistant) -> None:
+    """An entry with 2.1.0's separate-zones switch shows the valves layout."""
+    entry = await _setup(hass, separate_zones=True)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "entities"}
+    )
+    layout = next(k for k in result["data_schema"].schema if k == "zone_layout")
+    assert layout.description["suggested_value"] == "valves"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"valves": VALVES, "default_duration": 600, "zone_layout": "system"},
+    )
+    await hass.async_block_till_done()
+    services = services_by_type(server(hass, entry.entry_id).accessory)
+    assert "IrrigationSystem" in services

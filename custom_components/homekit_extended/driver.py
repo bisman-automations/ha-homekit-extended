@@ -8,11 +8,16 @@ from pathlib import Path
 import re
 from typing import Any
 
-from pyhap.accessory import Accessory
+from pyhap.accessory import Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
 from zeroconf import IPVersion, NonUniqueNameException, ServiceInfo
 
 from homeassistant.components import network
+from homeassistant.components.homekit.accessories import HomeIIDManager
+from homeassistant.components.homekit.aidmanager import (
+    AID_MANAGER_STORAGE_VERSION,
+    AccessoryAidStorage,
+)
 from homeassistant.components.homekit.iidmanager import (
     IID_MANAGER_STORAGE_VERSION,
     AccessoryIIDStorage,
@@ -21,6 +26,7 @@ from homeassistant.components.homekit.iidmanager import (
 from homeassistant.components.zeroconf import async_get_async_instance
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from .accessories import ACCESSORY_TYPES
 from .const import CONF_ACCESSORY_TYPE, CONF_PIN, CONF_PLAIN_NAME, CONF_PORT, DOMAIN
@@ -58,6 +64,32 @@ class ExtendedIIDStorage(AccessoryIIDStorage):
             self.allocations = raw.get("allocations", {})
             for aid, allocations in self.allocations.items():
                 self.allocated_iids[aid] = sorted(allocations.values())
+
+
+def aid_storage_key(entry_id: str) -> str:
+    """Storage key holding the AIDs of an entry's bridged accessories."""
+    return f"{DOMAIN}.{entry_id}.aids"
+
+
+class ExtendedAidStorage(AccessoryAidStorage):
+    """Core HomeKit's stable accessory-ID storage, kept under our own key.
+
+    Used when an entry publishes a bridge of its own (an irrigation system
+    with each zone as a separate accessory), so each zone keeps its AID.
+    """
+
+    async def async_initialize(self) -> None:
+        """Load stored AIDs from this integration's storage file."""
+        self.store = Store(
+            self.hass, AID_MANAGER_STORAGE_VERSION, aid_storage_key(self._entry_id)
+        )
+        if raw := await self.store.async_load():
+            self.allocations = raw.get("allocations", {})
+            self.allocated_aids = set(self.allocations.values())
+
+    def aid_for(self, key: str) -> int:
+        """Stable AID for one of the entry's accessories."""
+        return self.get_or_allocate_aid(key, key)
 
 
 # pyhap names the service "<name> <last 6 of the accessory id>._hap._tcp.local."
@@ -155,6 +187,10 @@ class HomeKitAccessoryServer:
         self.driver: ExtendedDriver | None = None
         self.accessory: Accessory | None = None
         self.iid_storage: ExtendedIIDStorage | None = None
+        self.aid_storage: ExtendedAidStorage | None = None
+        # What the driver publishes: the accessory itself, or a bridge of the
+        # accessories it coordinates.
+        self.published: Accessory | None = None
         self._published = self._snapshot()
 
     def _snapshot(self) -> tuple[str, dict[str, Any]]:
@@ -207,7 +243,7 @@ class HomeKitAccessoryServer:
     @property
     def setup_uri(self) -> str | None:
         """Return the X-HM:// payload encoded in the pairing QR code."""
-        return self.accessory.xhm_uri() if self.accessory is not None else None
+        return self.published.xhm_uri() if self.published is not None else None
 
     async def async_start(self) -> None:
         """Create the driver and accessory, then start advertising."""
@@ -240,9 +276,17 @@ class HomeKitAccessoryServer:
         self.driver = await self.hass.async_add_executor_job(_create_driver)
         self.driver.iid_storage = self.iid_storage
         # Accessories subscribe to HA state events, so build them on the loop.
-        self.accessory = self.accessory_type.factory(self.hass, self.driver, self.entry)
+        extra: dict[str, Any] = {}
+        if self.accessory_type.zone_accessories:
+            self.aid_storage = ExtendedAidStorage(self.hass, self.entry.entry_id)
+            await self.aid_storage.async_initialize()
+            extra["aid_for"] = self.aid_storage.aid_for
+        self.accessory = self.accessory_type.factory(
+            self.hass, self.driver, self.entry, **extra
+        )
+        self.published = self._publishable(self.accessory)
         await self.hass.async_add_executor_job(
-            self.driver.add_accessory, self.accessory
+            self.driver.add_accessory, self.published
         )
         try:
             await self.driver.async_start()
@@ -252,6 +296,28 @@ class HomeKitAccessoryServer:
         _LOGGER.info(
             "Publishing HomeKit accessory '%s' on port %s", self.entry.title, self.port
         )
+
+    def _publishable(self, accessory: Any) -> Accessory:
+        """The accessory, or a bridge of the accessories it coordinates."""
+        children = accessory.published_accessories()
+        if children == [accessory]:
+            return accessory
+        bridge = Bridge(
+            self.driver,
+            self.entry.title,
+            iid_manager=HomeIIDManager(self.iid_storage),
+        )
+        info = accessory.info
+        bridge.set_info_service(
+            firmware_revision=info["firmware"],
+            manufacturer=info["manufacturer"],
+            model=info["model"],
+            serial_number=info["serial_number"],
+        )
+        accessory.info_mirrors.append(bridge)
+        for child in children:
+            bridge.add_accessory(child)
+        return bridge
 
     async def _async_abort_start(self) -> None:
         """Clean up after a failed start.
@@ -279,3 +345,6 @@ class HomeKitAccessoryServer:
             await driver.async_stop()
         if self.iid_storage is not None:
             await self.iid_storage.async_save()
+        if self.aid_storage is not None:
+            await self.aid_storage.async_save()
+        self.published = None

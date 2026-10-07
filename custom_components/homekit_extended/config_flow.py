@@ -41,6 +41,7 @@ from .accessories.valves import (
     async_save_run_times,
     run_times_details,
     run_times_form,
+    zone_layout,
     zone_run_times,
 )
 from .bridge import bridged_entity_ids, homekit_bridges
@@ -59,6 +60,7 @@ from .const import (
     CONF_RUN_TIMES,
     CONF_SERIAL,
     CONF_USE_CONTROLLER,
+    CONF_ZONE_LAYOUT,
     DEFAULT_PORT,
     DOMAIN,
     STANDALONE,
@@ -475,6 +477,9 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
             if not errors:
                 return self._save(data)
         current = self._current
+        if self._type.zone_accessories:
+            # 2.1.0 stored a "separate zones" switch instead of a layout.
+            current[CONF_ZONE_LAYOUT] = zone_layout(current)
         for key in self._type.entity_keys:
             value = current.get(key)
             if isinstance(value, list):

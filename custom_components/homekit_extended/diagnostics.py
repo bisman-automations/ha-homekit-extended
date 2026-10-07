@@ -38,5 +38,11 @@ async def async_get_config_entry_diagnostics(
             if driver
             else 0
         ),
-        "accessory": server.accessory.to_HAP() if server.accessory else None,
+        "accessory": (
+            server.published.to_HAP()
+            if getattr(server, "published", None) is not None
+            else server.accessory.to_HAP()
+            if server.accessory
+            else None
+        ),
     }

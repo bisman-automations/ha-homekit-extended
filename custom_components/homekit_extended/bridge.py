@@ -26,7 +26,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .accessories import ACCESSORY_TYPES
-from .accessories.base import HomeAccessory, configured_entity_ids
+from .accessories.base import configured_entity_ids
 from .const import CONF_ACCESSORY_TYPE, CONF_BRIDGE, DOMAIN, HOMEKIT_DOMAIN
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ def bridged_entity_ids(hass: HomeAssistant, entry_id: str) -> set[str]:
     return {
         entity_id
         for accessory in bridge.accessories.values()
-        if not isinstance(accessory, HomeAccessory)
+        if not getattr(accessory, "homekit_extended", False)
         and (entity_id := getattr(accessory, "entity_id", None))
     }
 
@@ -204,12 +204,20 @@ class BridgedAccessoryServer:
         return len(driver.state.paired_clients) if driver else 0
 
     @property
+    def published(self) -> list[Accessory]:
+        """What this entry adds to the bridge: one accessory, or one per zone."""
+        if self.accessory is None:
+            return []
+        return self.accessory.published_accessories()  # type: ignore[attr-defined]
+
+    @property
     def _in_bridge(self) -> bool:
         bridge = getattr(self.homekit, "bridge", None)
+        published = self.published
         return (
-            self.accessory is not None
-            and bridge is not None
-            and bridge.accessories.get(self.accessory.aid) is self.accessory
+            bridge is not None
+            and bool(published)
+            and all(bridge.accessories.get(acc.aid) is acc for acc in published)
         )
 
     @property
@@ -259,22 +267,34 @@ class BridgedAccessoryServer:
             return
         if (previous := self._async_discard()) is not None:
             self.hass.async_create_task(previous.async_stop())  # type: ignore[attr-defined]
-        if len(bridge.accessories) + 1 >= MAX_BRIDGED:
+        storage = homekit.aid_storage
+        key = aid_key(self.entry.entry_id)
+        extra: dict[str, Any] = {}
+        if self.accessory_type.zone_accessories:
+            extra["aid_for"] = lambda zone: storage.get_or_allocate_aid(
+                f"{key}.{zone}", f"{key}.{zone}"
+            )
+        accessory = self.accessory_type.factory(
+            self.hass,
+            homekit.driver,
+            self.entry,
+            storage.get_or_allocate_aid(key, key),
+            **extra,
+        )
+        published = accessory.published_accessories()
+        if len(bridge.accessories) + len(published) >= MAX_BRIDGED:
             _LOGGER.warning(
                 "Can't add %s to %s: the bridge already has the most accessories "
                 "HomeKit allows",
                 self.entry.title,
                 self.bridge_name,
             )
+            self.hass.async_create_task(accessory.async_stop())
             self._async_issue("bridge_full")
             return
         ir.async_delete_issue(self.hass, DOMAIN, f"bridge_full_{self.entry.entry_id}")
-        key = aid_key(self.entry.entry_id)
-        aid = homekit.aid_storage.get_or_allocate_aid(key, key)
-        accessory = self.accessory_type.factory(
-            self.hass, homekit.driver, self.entry, aid
-        )
-        bridge.add_accessory(accessory)
+        for each in published:
+            bridge.add_accessory(each)
         self.homekit, self.accessory = homekit, accessory
         _update_accessories_hash(homekit)
         self.async_check_duplicates()
@@ -322,13 +342,18 @@ class BridgedAccessoryServer:
     @callback
     def _async_discard(self) -> Accessory | None:
         """Take the accessory out of its bridge, if it's still there."""
+        published = self.published
         accessory, homekit = self.accessory, self.homekit
         self.accessory = self.homekit = None
         if accessory is None:
             return None
         bridge = getattr(homekit, "bridge", None)
-        if bridge is not None and bridge.accessories.get(accessory.aid) is accessory:
-            del bridge.accessories[accessory.aid]
+        removed = False
+        for each in published:
+            if bridge is not None and bridge.accessories.get(each.aid) is each:
+                del bridge.accessories[each.aid]
+                removed = True
+        if removed:
             _update_accessories_hash(homekit)  # type: ignore[arg-type]
         return accessory
 

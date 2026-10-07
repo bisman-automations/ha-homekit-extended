@@ -76,6 +76,8 @@ class AccessoryType:
     entity_keys: tuple[str, ...] = field(default=())
     # Config key of the valves that get their own run times, if any.
     zones_key: str | None = None
+    # Can publish each zone as its own accessory (factory takes aid_for).
+    zone_accessories: bool = False
 
 
 INFO_KEYS = (CONF_MANUFACTURER, CONF_MODEL, CONF_SERIAL, CONF_FIRMWARE)
@@ -296,6 +298,44 @@ def drop_empty(values: dict[str, Any]) -> dict[str, Any]:
 # Accessory base
 
 
+def add_named_service(
+    accessory: Accessory,
+    service_type: str,
+    name: str,
+    chars: list[str] | None = None,
+    *,
+    label_index: int | None = None,
+    unique_id: str | None = None,
+) -> Service:
+    """Add a service carrying Name and ConfiguredName to any accessory.
+
+    Repeated service types need a unique_id so each keeps its own stored
+    instance IDs; the name stands in when the caller didn't give one.
+    """
+    if unique_id is None and any(
+        existing.display_name == service_type for existing in accessory.services
+    ):
+        unique_id = name
+    extra = [CHAR_SERVICE_LABEL_INDEX] if label_index is not None else []
+    service = accessory.add_preload_service(
+        service_type,
+        [CHAR_NAME, CHAR_CONFIGURED_NAME, *extra, *(chars or [])],
+        unique_id=unique_id,
+    )
+    service.configure_char(CHAR_NAME, value=name)
+    service.configure_char(CHAR_CONFIGURED_NAME, value=name)
+    if label_index is not None:
+        service.configure_char(CHAR_SERVICE_LABEL_INDEX, value=label_index)
+    return service
+
+
+def set_accessory_info(accessory: Accessory, info: dict[str, str]) -> None:
+    """Write manufacturer, model, serial and firmware to an accessory."""
+    service = accessory.get_service("AccessoryInformation")
+    for key, char_name in INFO_CHARS.items():
+        service.get_characteristic(char_name).set_value(info[key])
+
+
 class HomeAccessory(Accessory):
     """Accessory that mirrors Home Assistant entities.
 
@@ -306,6 +346,8 @@ class HomeAccessory(Accessory):
 
     # Read by core HomeKit's diagnostics when the accessory is in its bridge.
     entity_id: str | None = None
+    # Marks accessories of this integration among a core bridge's accessories.
+    homekit_extended = True
 
     def __init__(
         self,
@@ -314,20 +356,31 @@ class HomeAccessory(Accessory):
         entry: ConfigEntry,
         model: str,
         aid: int = STANDALONE_AID,
+        *,
+        published: bool = True,
     ) -> None:
-        """Initialize the accessory and its information service."""
+        """Initialize the accessory and its information service.
+
+        published=False is for an accessory that only coordinates others (an
+        irrigation system whose zones are separate accessories); it keeps its
+        instance IDs out of storage.
+        """
         iid_storage = getattr(driver, "iid_storage", None)
         super().__init__(
             driver=driver,
             display_name=entry.title,
             aid=aid,
-            iid_manager=HomeIIDManager(iid_storage) if iid_storage else None,
+            iid_manager=(
+                HomeIIDManager(iid_storage) if iid_storage and published else None
+            ),
         )
         self.hass = hass
         self.entry = entry
         self.data: dict[str, Any] = {**entry.data, **entry.options}
         # Read by core HomeKit's diagnostics, which don't redact it.
         self.config = {k: v for k, v in self.data.items() if k != "pin"}
+        # Other accessories showing this one's information (a bridge for it).
+        self.info_mirrors: list[Accessory] = []
         self._subscriptions: list[CALLBACK_TYPE] = []
         self._tracked: list[str] = []
         self._default_model = model
@@ -349,9 +402,23 @@ class HomeAccessory(Accessory):
             self.entry.entry_id,
             source_device_info(self.hass, config),
         )
-        service = self.get_service("AccessoryInformation")
-        for key, char_name in INFO_CHARS.items():
-            service.get_characteristic(char_name).set_value(info[key])
+        set_accessory_info(self, info)
+        for mirror in self.info_mirrors:
+            set_accessory_info(mirror, info)
+
+    @property
+    def info(self) -> dict[str, str]:
+        """The accessory information currently published."""
+        return accessory_info(
+            self.data,
+            self._default_model,
+            self.entry.entry_id,
+            source_device_info(self.hass, self.data),
+        )
+
+    def published_accessories(self) -> list[Accessory]:
+        """What goes to HomeKit: this accessory, or the ones it coordinates."""
+        return [self]
 
     def add_protocol_version_service(self) -> None:
         """Leave out HAP's protocol information service.
@@ -387,26 +454,15 @@ class HomeAccessory(Accessory):
         label_index: int | None = None,
         unique_id: str | None = None,
     ) -> Service:
-        """Add a service carrying Name and ConfiguredName.
-
-        Repeated service types need a unique_id so each keeps its own stored
-        instance IDs; the name stands in when the caller didn't give one.
-        """
-        if unique_id is None and any(
-            existing.display_name == service_type for existing in self.services
-        ):
-            unique_id = name
-        extra = [CHAR_SERVICE_LABEL_INDEX] if label_index is not None else []
-        service = self.add_preload_service(
+        """Add a service carrying Name and ConfiguredName."""
+        return add_named_service(
+            self,
             service_type,
-            [CHAR_NAME, CHAR_CONFIGURED_NAME, *extra, *(chars or [])],
+            name,
+            chars,
+            label_index=label_index,
             unique_id=unique_id,
         )
-        service.configure_char(CHAR_NAME, value=name)
-        service.configure_char(CHAR_CONFIGURED_NAME, value=name)
-        if label_index is not None:
-            service.configure_char(CHAR_SERVICE_LABEL_INDEX, value=label_index)
-        return service
 
     def add_service_label(self) -> Service:
         """Tell HomeKit that services are numbered (buttons, outlets)."""

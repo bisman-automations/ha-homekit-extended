@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-10-06
+
+### Added
+- **Irrigation zones as separate accessories.** The new **Zone layout** choice
+  replaces the **Zones as separate valves** switch and adds a third option:
+  - **Irrigation System** (default) and **Separate valves** work as before.
+  - **Separate accessories** publishes one accessory per zone, so each zone
+    gets its own room, name and icon in Apple Home. A standalone irrigation
+    system is published as a HomeKit bridge with the zones inside it (still
+    one pairing code); in a HomeKit Bridge, each zone joins that bridge as an
+    accessory of its own. Each zone keeps a stored accessory ID, so adding or
+    removing zones doesn't disturb the others, and a zone shows No Response
+    when its valve is unavailable.
+  - One zone at a time, the pump, run times and controller countdowns work
+    the same in every layout.
+
+### Changed
+- Entries with 2.1.0's **Zones as separate valves** switched on keep that
+  layout and show it as **Separate valves** in the options.
+
 ## [2.1.0] - 2026-10-06
 
 ### Added
@@ -237,6 +257,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.2.0
 [2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.1.0
 [2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.0.0
 [1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.5.0

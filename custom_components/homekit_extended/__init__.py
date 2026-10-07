@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
 from .bridge import (
@@ -24,9 +25,11 @@ from .bridge import (
 )
 from .const import CONF_BRIDGE, CONF_PORT, DOMAIN, SIGNAL_PAIRING_CHANGED
 from .driver import (
+    AID_MANAGER_STORAGE_VERSION,
     IID_MANAGER_STORAGE_VERSION,
     HomeKitAccessoryServer,
     IIDStorage,
+    aid_storage_key,
     iid_storage_key,
     persist_path,
 )
@@ -147,7 +150,13 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     bridge_id = {**entry.data, **entry.options}.get(CONF_BRIDGE)
     homekit = running_homekit(hass, bridge_id) if bridge_id else None
     if homekit is not None and homekit.aid_storage is not None:
-        homekit.aid_storage.delete_aid(aid_key(entry.entry_id))
+        key = aid_key(entry.entry_id)
+        for stored in list(homekit.aid_storage.allocations):
+            if stored == key or stored.startswith(f"{key}."):
+                homekit.aid_storage.delete_aid(stored)
+    await Store(
+        hass, AID_MANAGER_STORAGE_VERSION, aid_storage_key(entry.entry_id)
+    ).async_remove()
     hass.data.get(DATA_QR_TOKENS, {}).pop(entry.entry_id, None)
 
 
