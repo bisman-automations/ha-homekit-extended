@@ -77,12 +77,15 @@ from .base import (
     source_device_info,
 )
 from .zone_links import (
+    ControllerLinks,
     ZoneLinks,
     duration_limits,
     duration_seconds,
+    find_controller_links,
     find_zone_links,
     seconds_per_unit,
     seconds_until,
+    seconds_until_attribute,
 )
 
 CHAR_ACTIVE = "Active"
@@ -101,6 +104,9 @@ DURATION_PROPERTIES = {"minValue": 0, "maxValue": MAX_DURATION, "minStep": 1}
 LINKED_REMAINING_MAX = 48 * 3600
 # Keep the pump running briefly so it doesn't cycle between zones.
 PUMP_OFF_DELAY = 5
+# How long the system shows as on after asking the controller to run all
+# zones, while waiting for it to report that it started.
+CONTROLLER_START_GRACE = 60
 
 HK_ACTIVE = 1
 HK_INACTIVE = 0
@@ -428,6 +434,11 @@ class ValveGroupAccessory(HomeAccessory):
             if self.data.get(CONF_USE_CONTROLLER, True)
             else {}
         )
+        self.controller: ControllerLinks = self.find_controller()
+        # Set from asking the controller to run all zones until it reports it.
+        self._controller_starting: asyncio.TimerHandle | None = None
+        # Set from asking the controller to stop until it reports it stopped.
+        self._controller_stopping: asyncio.TimerHandle | None = None
         self._zones: dict[str, Zone] = {}
         self._sequence: deque[str] = deque()
         self._sequence_current: str | None = None
@@ -481,6 +492,8 @@ class ValveGroupAccessory(HomeAccessory):
                 handlers[links.duration] = self._linked_duration_handler(entity_id)
             if links.end_time:
                 handlers[links.end_time] = self._linked_end_time_handler(entity_id)
+        if self.controller.running:
+            handlers[self.controller.running] = self._controller_running_changed
         self.track(handlers)
         self._building = False
         self._update_system()
@@ -504,6 +517,10 @@ class ValveGroupAccessory(HomeAccessory):
 
     def start_all(self) -> None:
         """Handle the parent service being turned on."""
+
+    def find_controller(self) -> ControllerLinks:
+        """Controller entities the system switch uses; only irrigation has any."""
+        return ControllerLinks()
 
     def zone_layout(self, data: dict[str, Any]) -> str:
         """How zones appear in HomeKit; only irrigation systems can change it."""
@@ -620,6 +637,7 @@ class ValveGroupAccessory(HomeAccessory):
     async def async_stop(self) -> None:
         """Release listeners and pending timers."""
         await super().async_stop()
+        self._clear_controller_starting()
         self._sequence.clear()
         self._sequence_current = None
         for zone in self._zones.values():
@@ -634,9 +652,22 @@ class ValveGroupAccessory(HomeAccessory):
         if value == HK_INACTIVE:
             self._sequence.clear()
             self._sequence_current = None
+            self._clear_controller_starting()
+            if self.controller.stop:
+                # Stops whatever the controller runs, its own programs too.
+                self._controller_stopping = self.hass.loop.call_later(
+                    CONTROLLER_START_GRACE, self._async_controller_stop_expired
+                )
+                self.call_service("button", "press", self.controller.stop)
             for entity_id, zone in self._zones.items():
                 if zone.running:
-                    self._close_zone(entity_id)
+                    if self.controller.stop:
+                        # Shown as closed now; the controller closes it.
+                        zone.active.set_value(HK_INACTIVE)
+                        zone.in_use.set_value(HK_NOT_IN_USE)
+                        self._cancel_run(zone)
+                    else:
+                        self._close_zone(entity_id)
         else:
             self.start_all()
         self._update_system()
@@ -803,6 +834,11 @@ class ValveGroupAccessory(HomeAccessory):
         return max(0, min(limit, round(zone.ends_at - self.hass.loop.time())))
 
     def _system_remaining_seconds(self) -> int:
+        if self._controller_irrigating():
+            # The controller's current run; it doesn't say when "run all" ends.
+            state = self.hass.states.get(self.controller.running)  # type: ignore[arg-type]
+            if remaining := seconds_until_attribute(state, "end"):
+                return min(remaining, self._system_remaining_max())
         if self._sequence_current is not None:
             total = self._zone_remaining_seconds(self._sequence_current) + sum(
                 self._zones[entity_id].duration for entity_id in self._sequence
@@ -814,7 +850,55 @@ class ValveGroupAccessory(HomeAccessory):
         )
 
     def _system_remaining_max(self) -> int:
-        return LINKED_REMAINING_MAX if any(self.links.values()) else MAX_DURATION
+        if any(self.links.values()) or self.controller.running:
+            return LINKED_REMAINING_MAX
+        return MAX_DURATION
+
+    # Controller "run all zones"
+
+    def _start_controller_run(self) -> None:
+        """Ask the controller to run all zones, in its own order."""
+        assert self.controller.run_all
+        self._sequence.clear()
+        self._sequence_current = None
+        self._clear_controller_starting()
+        self._controller_starting = self.hass.loop.call_later(
+            CONTROLLER_START_GRACE, self._async_controller_start_expired
+        )
+        self.call_service("button", "press", self.controller.run_all)
+
+    @callback
+    def _async_controller_start_expired(self) -> None:
+        self._controller_starting = None
+        self._update_system()
+
+    @callback
+    def _async_controller_stop_expired(self) -> None:
+        self._controller_stopping = None
+        self._update_system()
+
+    def _clear_controller_starting(self) -> None:
+        for handle in (self._controller_starting, self._controller_stopping):
+            if handle is not None:
+                handle.cancel()
+        self._controller_starting = self._controller_stopping = None
+
+    def _controller_irrigating(self) -> bool:
+        if not self.controller.running:
+            return False
+        state = self.hass.states.get(self.controller.running)
+        return state is not None and state.state == "on"
+
+    @callback
+    def _controller_running_changed(self, state: State) -> None:
+        if (
+            state.state == "on"
+            and self._controller_starting is not None
+            or state.state != "on"
+            and self._controller_stopping is not None
+        ):
+            self._clear_controller_starting()
+        self._update_system()
 
     # Home Assistant -> HomeKit
 
@@ -838,9 +922,17 @@ class ValveGroupAccessory(HomeAccessory):
         if self._building:
             return
         running = any(zone.running for zone in self._zones.values())
+        system_running = running or self._controller_irrigating()
         if self._system_active is not None:
+            # While a stop is on its way, show off (InUse still shows water).
             self._system_active.set_value(
-                HK_ACTIVE if running or self._sequence_current else HK_INACTIVE
+                HK_INACTIVE
+                if self._controller_stopping is not None
+                else HK_ACTIVE
+                if system_running
+                or self._sequence_current
+                or self._controller_starting is not None
+                else HK_INACTIVE
             )
         if self._system_fault is not None:
             self._system_fault.set_value(
@@ -849,7 +941,9 @@ class ValveGroupAccessory(HomeAccessory):
                 else HK_NO_FAULT
             )
         if self._system_in_use is not None:
-            self._system_in_use.set_value(HK_IN_USE if running else HK_NOT_IN_USE)
+            self._system_in_use.set_value(
+                HK_IN_USE if system_running else HK_NOT_IN_USE
+            )
         if self._system_remaining is not None:
             self._system_remaining.set_value(self._system_remaining_seconds())
         self._update_pump(running)
@@ -921,8 +1015,24 @@ class IrrigationAccessory(ValveGroupAccessory):
         return bool(self.data.get(CONF_ONE_AT_A_TIME, True))
 
     def start_all(self) -> None:
-        """Turning the system on runs every enabled zone in turn."""
-        self._start_sequence()
+        """Turning the system on runs every enabled zone in turn.
+
+        With a controller "run all zones" button (Rain Bird Extended), the
+        controller runs its own sequence, with its zone order and cycle and
+        soak; otherwise the zones are run from here.
+        """
+        if self.controller.run_all:
+            self._start_controller_run()
+        else:
+            self._start_sequence()
+
+    def find_controller(self) -> ControllerLinks:
+        """The controller's run-all, stop and irrigating entities, if any."""
+        if not self.data.get(CONF_USE_CONTROLLER, True):
+            return ControllerLinks()
+        if self.zone_layout(self.data) != LAYOUT_SYSTEM:
+            return ControllerLinks()  # no system switch to drive
+        return find_controller_links(self.hass, self.valves)
 
     def zone_layout(self, data: dict[str, Any]) -> str:
         """Irrigation zones can be valves or accessories of their own."""

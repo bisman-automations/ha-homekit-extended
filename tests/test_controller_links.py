@@ -263,3 +263,124 @@ async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> Non
     assert info.get_characteristic("Model").value == "ARC8 Garage"
     assert info.get_characteristic("Manufacturer").value == "Rain Bird"
     assert controller
+
+
+RUN_ALL = "button.rain_bird_controller_run_all_zones"
+STOP = "button.rain_bird_controller_stop_irrigation"
+IRRIGATING = "binary_sensor.rain_bird_controller_irrigating"
+
+
+def _controller_buttons(hass: HomeAssistant, controller_id: str) -> None:
+    """Rain Bird Extended 1.3's Run all zones, Stop irrigation and Irrigating."""
+    entities = er.async_get(hass)
+    for domain, key in (
+        ("button", "run_all_zones"),
+        ("button", "stop_irrigation"),
+        ("binary_sensor", "irrigating"),
+    ):
+        entities.async_get_or_create(
+            domain,
+            "rainbird_extended",
+            f"ctrl-{key}",
+            suggested_object_id=f"rain_bird_controller_{key}",
+            device_id=controller_id,
+            translation_key=key,
+        )
+    hass.states.async_set(IRRIGATING, "off", {"zones": [], "end": None})
+
+
+def _system(hass: HomeAssistant, entry_id: str):
+    acc = server(hass, entry_id).accessory
+    (system,) = [s for s in acc.services if s.display_name == "IrrigationSystem"]
+    return acc, system
+
+
+async def test_run_all_uses_controller(hass: HomeAssistant) -> None:
+    """The system switch presses the controller's Run all zones and Stop."""
+    _controller_buttons(hass, _rain_bird(hass))
+    presses = async_mock_service(hass, "button", "press")
+    opens = async_mock_service(hass, "valve", "open_valve")
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    acc, system = _system(hass, entry.entry_id)
+
+    system.get_characteristic("Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in presses] == [RUN_ALL]
+    assert not opens  # the controller runs the zones, in its own order
+    # Shown as on while the controller starts, not flicking back off.
+    assert system.get_characteristic("Active").value == 1
+    assert system.get_characteristic("InUse").value == 0
+
+    # The controller reports zone 2 running for 10 minutes.
+    end = dt_util.utcnow() + timedelta(minutes=10)
+    hass.states.async_set("valve.zone_2_valve", "open")
+    hass.states.async_set(
+        IRRIGATING,
+        "on",
+        {"zones": [2], "end": end.isoformat(), "run_all_zones": True},
+    )
+    await hass.async_block_till_done()
+    assert system.get_characteristic("InUse").value == 1
+    assert 595 <= acc._system_remaining_seconds() <= 600
+
+    system.get_characteristic("Active").client_update_value(0)
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in presses] == [RUN_ALL, STOP]
+    # Off right away; water still shows as flowing until the controller stops.
+    assert system.get_characteristic("Active").value == 0
+    assert system.get_characteristic("InUse").value == 1
+    hass.states.async_set("valve.zone_2_valve", "closed")
+    hass.states.async_set(IRRIGATING, "off", {"zones": [], "end": None})
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 0
+    assert system.get_characteristic("InUse").value == 0
+
+    # A program started on the controller later still shows as running.
+    hass.states.async_set(IRRIGATING, "on", {"zones": [1], "end": None})
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 1
+
+
+async def test_controller_programs_show_as_running(hass: HomeAssistant) -> None:
+    """A Rain Bird program or schedule shows the system as running."""
+    _controller_buttons(hass, _rain_bird(hass))
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    _, system = _system(hass, entry.entry_id)
+    hass.states.async_set(IRRIGATING, "on", {"zones": [1], "end": None})
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 1
+    assert system.get_characteristic("InUse").value == 1
+    hass.states.async_set(IRRIGATING, "off", {"zones": [], "end": None})
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 0
+
+
+async def test_controller_start_gives_up(hass: HomeAssistant) -> None:
+    """If the controller never starts, the switch goes back off."""
+    _controller_buttons(hass, _rain_bird(hass))
+    async_mock_service(hass, "button", "press")
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    _, system = _system(hass, entry.entry_id)
+    system.get_characteristic("Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 1
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 0
+
+
+async def test_controller_run_all_off_uses_local_sequence(
+    hass: HomeAssistant,
+) -> None:
+    """Turning controller run times off also keeps run-all here."""
+    _controller_buttons(hass, _rain_bird(hass))
+    presses = async_mock_service(hass, "button", "press")
+    opens = async_mock_service(hass, "valve", "open_valve")
+    entry = await setup_accessory(
+        hass, "irrigation", valves=VALVES, use_controller_timers=False
+    )
+    _, system = _system(hass, entry.entry_id)
+    system.get_characteristic("Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert not presses
+    assert [c.data["entity_id"] for c in opens] == ["valve.zone_1_valve"]

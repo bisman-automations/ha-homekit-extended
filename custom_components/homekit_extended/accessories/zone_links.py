@@ -17,7 +17,7 @@ from homeassistant.components.number import NumberDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, UnitOfTime
 from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .base import IGNORED_STATES, device_class_of
@@ -109,6 +109,76 @@ def seconds_until(state: State | None) -> int:
     if state is None or state.state in IGNORED_STATES:
         return 0
     end: datetime | None = dt_util.parse_datetime(state.state)
+    if end is None:
+        return 0
+    return max(0, round((end - dt_util.utcnow()).total_seconds()))
+
+
+# Controller-level entities, matched by the key their integration gives them
+# (Rain Bird Extended's names; other integrations can use the same keys).
+RUN_ALL_KEYS = frozenset({"run_all_zones"})
+STOP_KEYS = frozenset({"stop_irrigation"})
+RUNNING_KEYS = frozenset({"irrigating"})
+
+
+@dataclass(frozen=True, slots=True)
+class ControllerLinks:
+    """A controller's own "run all zones", "stop" and "irrigating" entities.
+
+    When they exist, the Irrigation System's switch runs and stops the
+    controller's own program (with its zone order, cycle and soak) instead
+    of a sequence kept here, and shows whatever the controller is running.
+    """
+
+    run_all: str | None = None
+    stop: str | None = None
+    running: str | None = None
+
+    def __bool__(self) -> bool:
+        """Return true if anything is linked."""
+        return bool(self.run_all or self.stop or self.running)
+
+
+def find_controller_links(
+    hass: HomeAssistant, valve_entity_ids: list[str]
+) -> ControllerLinks:
+    """Look for controller entities on the device all the valves belong to.
+
+    That's the valves' own device, or the device they're connected through
+    (each Rain Bird zone is a device under its controller).
+    """
+    registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    controllers: set[str] = set()
+    for entity_id in valve_entity_ids:
+        entry = registry.async_get(entity_id)
+        if entry is None or entry.device_id is None:
+            return ControllerLinks()
+        device = devices.async_get(entry.device_id)
+        if device is None:
+            return ControllerLinks()
+        controllers.add(device.via_device_id or device.id)
+    if len(controllers) != 1:
+        return ControllerLinks()
+    found: dict[str, str] = {}
+    for entry in er.async_entries_for_device(registry, controllers.pop()):
+        if entry.disabled_by is not None:
+            continue
+        key = entry.translation_key
+        if entry.domain == "button" and key in RUN_ALL_KEYS:
+            found.setdefault("run_all", entry.entity_id)
+        elif entry.domain == "button" and key in STOP_KEYS:
+            found.setdefault("stop", entry.entity_id)
+        elif entry.domain == "binary_sensor" and key in RUNNING_KEYS:
+            found.setdefault("running", entry.entity_id)
+    return ControllerLinks(**found)
+
+
+def seconds_until_attribute(state: State | None, attribute: str) -> int:
+    """Seconds until a timestamp held in a state attribute (0 if none or past)."""
+    if state is None or not (raw := state.attributes.get(attribute)):
+        return 0
+    end: datetime | None = dt_util.parse_datetime(str(raw))
     if end is None:
         return 0
     return max(0, round((end - dt_util.utcnow()).total_seconds()))

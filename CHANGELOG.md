@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-10-07
+
+### Added
+- **The Irrigation System's switch uses the controller's own "run all zones".**
+  When the controller has **Run all zones** and **Stop irrigation** buttons and
+  an **Irrigating** sensor (Rain Bird Extended 1.2 and newer), turning the
+  system on in Apple Home presses Run all zones, so the zones run in the order
+  and with the cycle and soak set in the controller's options, and turning it
+  off presses Stop irrigation. The system shows as running whenever the
+  controller is irrigating, including its own programs and schedules, with the
+  time left on the current zone. Without these entities, run all zones works
+  as before. Turn it off with **Use the controller's run times and countdown**.
+
 ## [2.2.0] - 2026-10-06
 
 ### Added
@@ -257,6 +270,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.3.0
 [2.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.2.0
 [2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.1.0
 [2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.0.0

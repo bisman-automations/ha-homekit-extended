@@ -140,6 +140,20 @@ controls; nothing extra appears in Apple Home.
   adds both to every Rain Bird zone; pick the Rain Bird controller during
   setup and all of its zones are found. Turn this off with **Use the
   controller's run times and countdown**.
+- **Controller "run all zones".** When the controller also has **Run all
+  zones** and **Stop irrigation** buttons and an **Irrigating** sensor (Rain
+  Bird Extended 1.2 and newer), the Irrigation System's switch uses them:
+  - Turning it on presses Run all zones, so the controller runs the zones in
+    the order and with the cycle and soak set in its own options.
+  - Turning it off presses Stop irrigation, which also stops Rain Bird
+    programs and schedules.
+  - The system shows as running whenever the controller is irrigating,
+    however it was started, with the time left on the current zone.
+  - Zones turned off in Apple Home only apply to HomeKit Extended's own run
+    all zones; with the controller's, choose the zones in its options.
+
+  This applies to the Irrigation System layout (the other layouts have no
+  system switch) and follows **Use the controller's run times and countdown**.
 - **Changes outside HomeKit**, for example from an automation or the controller
   itself, are mirrored to Apple Home.
 - **Zone layout.** Choose how the zones appear in Apple Home:
