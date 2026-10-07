@@ -61,4 +61,6 @@ jobs:
       - run: ${{ matrix.install }}
       - run: pip install $(python scripts/core_requirements.py)
       - run: python -c "import homeassistant.const as c; print('Home Assistant', c.__version__)"
-      - run: pytest -q
+      # Newer Home Assistant must be imported before the test harness, which
+      # imports httpx first (HA now aliases httpx when it loads).
+      - run: python -c "import homeassistant, sys, pytest; sys.exit(pytest.main(['-q']))"

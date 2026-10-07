@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   HomeKit accessories.
 - CI now also runs the tests against Home Assistant's beta and development
   versions, so changes to core HomeKit show up before they're released. The
-  tests pass on 2026.10 beta.
+  tests pass on 2026.10 beta and 2026.11 dev.
 
 ### Changed
 - HomeKit Extended now depends on Home Assistant's HomeKit Bridge integration
