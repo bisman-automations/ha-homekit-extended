@@ -22,7 +22,7 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers import device_registry as dr, selector
+from homeassistant.helpers import selector
 
 from . import async_reset_pairing_state
 from .accessories import ACCESSORY_TYPES, AccessoryType
@@ -30,9 +30,10 @@ from .accessories.base import (
     FIRMWARE_RE,
     INFO_KEYS,
     MAX_INFO_LENGTH,
+    accessory_info,
     device_entities,
     device_name,
-    firmware_version,
+    source_device_info,
 )
 from .accessories.valves import (
     async_save_run_times,
@@ -56,7 +57,6 @@ from .const import (
     CONF_USE_CONTROLLER,
     DEFAULT_PORT,
     DOMAIN,
-    VERSION,
 )
 from .helpers import generate_pin, validate_pin
 from .pairing import pairing_markdown
@@ -84,17 +84,20 @@ def _info_fields() -> dict[vol.Marker, Any]:
     return {vol.Optional(key): selector.TextSelector() for key in INFO_KEYS}
 
 
-def _device_info(hass: HomeAssistant, device_id: str) -> dict[str, str]:
-    """Suggest accessory information from the device it represents."""
-    if (device := dr.async_get(hass).async_get(device_id)) is None:
-        return {}
-    suggested = {
-        CONF_MANUFACTURER: device.manufacturer,
-        CONF_MODEL: device.model,
-        CONF_SERIAL: device.serial_number,
-        CONF_FIRMWARE: firmware_version(device.sw_version),
-    }
-    return {key: str(value) for key, value in suggested.items() if value}
+def _info_defaults(
+    hass: HomeAssistant, data: dict[str, Any], model: str, serial: str
+) -> str:
+    """What Apple Home shows for any field left empty."""
+    info = accessory_info({}, model, serial, source_device_info(hass, data))
+    return ", ".join(
+        f"{label} {info[key]}"
+        for key, label in (
+            (CONF_MANUFACTURER, "manufacturer"),
+            (CONF_MODEL, "model"),
+            (CONF_SERIAL, "serial number"),
+            (CONF_FIRMWARE, "firmware"),
+        )
+    )
 
 
 def _validate_info(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
@@ -179,6 +182,7 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
         self._connection: dict[str, Any] = {}
         self._suggested: dict[str, Any] = {}
         self._data: dict[str, Any] = {}
+        self._device_id: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -200,10 +204,8 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                 device_id = user_input.get(CONF_DEVICE)
                 if device_id:
                     entries = device_entities(self.hass, device_id)
-                    self._suggested = {
-                        **accessory_type.detect(self.hass, entries),
-                        CONF_INFO: _device_info(self.hass, device_id),
-                    }
+                    self._suggested = accessory_type.detect(self.hass, entries)
+                self._device_id = device_id
                 self._title = (
                     (user_input.get(CONF_NAME) or "").strip()
                     or (device_name(self.hass, device_id) if device_id else None)
@@ -253,6 +255,7 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 self._data = {
                     CONF_ACCESSORY_TYPE: self._type.key,
+                    **({CONF_DEVICE: self._device_id} if self._device_id else {}),
                     **self._connection,
                     **data,
                     **{key: value for key, value in info.items() if value},
@@ -431,8 +434,12 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
             errors=errors,
             description_placeholders={
                 "name": self.config_entry.title,
-                "model": self._type.model,
-                "version": VERSION,
+                "defaults": _info_defaults(
+                    self.hass,
+                    self._current,
+                    self._type.model,
+                    self.config_entry.entry_id,
+                ),
             },
         )
 

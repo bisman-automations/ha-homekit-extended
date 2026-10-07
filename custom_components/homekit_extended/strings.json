@@ -88,7 +88,7 @@
         "sections": {
           "accessory_info": {
             "name": "Accessory information",
-            "description": "What Apple Home shows under the accessory's details. Filled in from the device you picked, if any.",
+            "description": "What Apple Home shows under the accessory's details. Leave fields empty to use the details of the device you picked, or of the device the entities belong to.",
             "data": {
               "manufacturer": "Manufacturer",
               "model": "Model",
@@ -96,10 +96,10 @@
               "firmware": "Firmware"
             },
             "data_description": {
-              "manufacturer": "Leave empty for \"HomeKit Extended\".",
-              "model": "Leave empty for the accessory type, such as \"HomeKit Extended Irrigation\".",
-              "serial_number": "Leave empty to use a unique ID for this accessory. At least 2 characters.",
-              "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use this integration's version."
+              "manufacturer": "Leave empty to use the device's manufacturer.",
+              "model": "Leave empty to use the device's model.",
+              "serial_number": "Leave empty to use the device's serial number or MAC address. At least 2 characters.",
+              "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use the device's firmware version."
             }
           }
         }
@@ -426,7 +426,7 @@
       },
       "info": {
         "title": "Accessory information for {name}",
-        "description": "What Apple Home shows under the accessory's details. Empty fields use the defaults: HomeKit Extended, {model}, a unique ID and version {version}. Changes apply right away. \"HomeKit Certified\" can't be changed; it's only Yes for devices certified by Apple.",
+        "description": "What Apple Home shows under the accessory's details. Empty fields come from the device this accessory represents, or from HomeKit Extended if the device doesn't say. Right now that's: {defaults}.\n\nChanges apply right away. \"HomeKit Certified\" can't be changed; it's only Yes for devices certified by Apple.",
         "data": {
           "manufacturer": "Manufacturer",
           "model": "Model",
@@ -434,10 +434,10 @@
           "firmware": "Firmware"
         },
         "data_description": {
-          "manufacturer": "Leave empty for \"HomeKit Extended\".",
-          "model": "Leave empty for the accessory type, such as \"HomeKit Extended Irrigation\".",
-          "serial_number": "Leave empty to use a unique ID for this accessory. At least 2 characters.",
-          "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use this integration's version."
+          "manufacturer": "Leave empty to use the device's manufacturer.",
+          "model": "Leave empty to use the device's model.",
+          "serial_number": "Leave empty to use the device's serial number or MAC address. At least 2 characters.",
+          "firmware": "Numbers only: 1, 1.2 or 1.2.3. Leave empty to use the device's firmware version."
         }
       },
       "connection": {

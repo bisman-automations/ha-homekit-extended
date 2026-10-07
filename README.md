@@ -68,8 +68,12 @@ sensor, so you can see at a glance which ones are added to Apple Home. Choose
 - **Run times** (irrigation and shower). Set each zone's run time. This applies
   right away, without re-pairing.
 - **Accessory information.** Set the manufacturer, model, serial number and
-  firmware shown in Apple Home. These are filled in from the device you picked
-  during setup, and changes apply without re-pairing.
+  firmware shown in Apple Home. Any field left empty uses the details of the
+  device the accessory represents: the device you picked during setup, or the
+  device of its entities. For a zone device under a controller (like Rain Bird
+  zones), the controller's details are used, and its MAC address stands in for
+  a missing serial number. The screen shows what each empty field will use, and
+  changes apply without re-pairing.
 - **Port and pairing code.**
 - **Pairing.** Show the QR code again, or reset pairing so the accessory can be
   added to a different home.

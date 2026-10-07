@@ -43,7 +43,9 @@ def _rain_bird(hass: HomeAssistant) -> str:
         identifiers={("rainbird", "ctrl")},
         name="Rain Bird Controller",
         manufacturer="Rain Bird",
-        model="ESP-TM2",
+        model="ARC8",
+        sw_version="2.12",
+        connections={(dr.CONNECTION_NETWORK_MAC, "70:B8:F6:9A:5B:1C")},
     )
     for zone, name in ((1, "Front Lawn"), (2, "Back Lawn")):
         device = devices.async_get_or_create(
@@ -231,3 +233,32 @@ async def test_run_times_screen_explains_sources(hass: HomeAssistant) -> None:
         " From 1 minute to 24 hours in 1 minute steps.\n\n"
         "**Stored by HomeKit Extended:** Garden. Up to 1 hour; 0 runs until stopped."
     )
+
+
+async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> None:
+    """Empty accessory information follows the controller behind the zones."""
+    controller = _rain_bird(hass)
+    # Older entries don't store the device: it's found from the valves.
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    info = server(hass, entry.entry_id).accessory.get_service("AccessoryInformation")
+    assert info.get_characteristic("Manufacturer").value == "Rain Bird"
+    assert info.get_characteristic("Model").value == "ARC8"
+    assert info.get_characteristic("SerialNumber").value == "70:B8:F6:9A:5B:1C"
+    assert info.get_characteristic("FirmwareRevision").value == "2.12"
+
+    # The options step shows what an empty field falls back to.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "info"}
+    )
+    assert "Rain Bird" in result["description_placeholders"]["defaults"]
+    assert "70:B8:F6:9A:5B:1C" in result["description_placeholders"]["defaults"]
+
+    # A value set by hand still wins over the device.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"model": "ARC8 Garage"}
+    )
+    await hass.async_block_till_done()
+    assert info.get_characteristic("Model").value == "ARC8 Garage"
+    assert info.get_characteristic("Manufacturer").value == "Rain Bird"
+    assert controller

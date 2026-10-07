@@ -92,20 +92,16 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
     assert result["step_id"] == "entities"
     valves = next(k for k in result["data_schema"].schema if k == "valves")
     assert valves.description["suggested_value"] == ["valve.front", "valve.back"]
+    # Accessory information is left empty: it follows the device.
     info = result["data_schema"].schema["accessory_info"].schema.schema
-    assert {str(k): k.description["suggested_value"] for k in info} == {
-        "manufacturer": "Hunter",
-        "model": "IQ4",
-        "serial_number": "5C4F8E",
-        "firmware": "3.2.1",
-    }
+    assert all(k.description is None for k in info)
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             "valves": ["valve.front", "valve.back"],
             "default_duration": 600,
-            "accessory_info": {"manufacturer": "Hunter", "model": "IQ4"},
+            "accessory_info": {},
         },
     )
     assert result["step_id"] == "run_times"
@@ -127,8 +123,7 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
         "one_at_a_time": True,
         "master": None,
         "use_controller_timers": True,
-        "manufacturer": "Hunter",
-        "model": "IQ4",
+        "device": device_id,
         "run_times": {"valve.front": 300, "valve.back": 1200},
     }
 

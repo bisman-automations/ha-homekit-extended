@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-10-06
+
+### Added
+- **Accessory information follows the device.** Manufacturer, model, serial
+  number and firmware left empty now use the details Home Assistant already has
+  for the device the accessory represents, instead of "HomeKit Extended".
+  - The device is the one picked during setup or, for existing accessories, the
+    device of their entities.
+  - Zone devices are followed up to their controller, so a Rain Bird irrigation
+    system shows the controller's model (for example ARC8) and firmware.
+  - When the device has no serial number, its MAC address is used.
+  - The accessory information screen lists what each empty field will use.
+
+### Changed
+- Setup no longer copies the device's details into the accessory information
+  fields. They stay empty and follow the device, so a firmware update on the
+  device shows up in Apple Home without editing anything. Values typed in still
+  take priority.
+
 ## [1.4.1] - 2026-10-06
 
 ### Fixed
@@ -159,6 +178,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.1
 [1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.3.0

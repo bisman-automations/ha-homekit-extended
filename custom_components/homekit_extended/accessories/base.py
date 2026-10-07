@@ -28,6 +28,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er, 
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import (
+    CONF_DEVICE,
     CONF_FIRMWARE,
     CONF_MANUFACTURER,
     CONF_MODEL,
@@ -99,18 +100,91 @@ def firmware_version(raw: Any) -> str | None:
     return match.group(0) if match else None
 
 
-def accessory_info(data: dict[str, Any], model: str, serial: str) -> dict[str, str]:
-    """Accessory information to publish, falling back to defaults."""
+ENTITY_ID_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
+
+
+def _configured_entity_ids(data: dict[str, Any]) -> list[str]:
+    """Entity ids in an entry's config, in order (lists and legacy dicts too)."""
+    found: list[str] = []
+    for value in data.values():
+        items = value if isinstance(value, list) else [value]
+        for item in items:
+            if isinstance(item, dict):
+                item = item.get("entity_id")
+            if isinstance(item, str) and ENTITY_ID_RE.match(item):
+                found.append(item)
+    return found
+
+
+def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
+    """Manufacturer, model, serial and firmware of the device being represented.
+
+    Uses the device picked during setup, or else the device of the first
+    configured entity. Missing details are taken from the device it's
+    connected through (a Rain Bird zone's controller, for example). A device
+    without a serial number falls back to its MAC address.
+    """
+    devices = dr.async_get(hass)
+    registry = er.async_get(hass)
+    device = devices.async_get(data[CONF_DEVICE]) if data.get(CONF_DEVICE) else None
+    if device is None:
+        for entity_id in _configured_entity_ids(data):
+            entry = registry.async_get(entity_id)
+            if entry and entry.device_id:
+                device = devices.async_get(entry.device_id)
+                if device is not None:
+                    break
+    info: dict[str, str] = {}
+    seen: set[str] = set()
+    while device is not None and device.id not in seen:
+        seen.add(device.id)
+        mac = next(
+            (
+                value.upper()
+                for kind, value in device.connections
+                if kind == dr.CONNECTION_NETWORK_MAC
+            ),
+            None,
+        )
+        for key, value in (
+            (CONF_MANUFACTURER, device.manufacturer),
+            (CONF_MODEL, device.model),
+            (CONF_SERIAL, device.serial_number or mac),
+            (CONF_FIRMWARE, firmware_version(device.sw_version)),
+        ):
+            if value:
+                info.setdefault(key, str(value))
+        device = (
+            devices.async_get(device.via_device_id) if device.via_device_id else None
+        )
+    return info
+
+
+def accessory_info(
+    data: dict[str, Any],
+    model: str,
+    serial: str,
+    source: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Accessory information to publish.
+
+    Each field uses, in order: what the user set, the represented device's
+    value, then HomeKit Extended's default.
+    """
     defaults = {
         CONF_MANUFACTURER: MANUFACTURER,
         CONF_MODEL: model,
         CONF_SERIAL: serial,
         CONF_FIRMWARE: VERSION,
     }
-    return {
-        key: str(data.get(key) or default)[:MAX_INFO_LENGTH]
+    source = source or {}
+    info = {
+        key: str(data.get(key) or source.get(key) or default)[:MAX_INFO_LENGTH]
         for key, default in defaults.items()
     }
+    if len(info[CONF_SERIAL]) < 2:
+        info[CONF_SERIAL] = serial
+    return info
 
 
 # Selector helpers
@@ -237,7 +311,9 @@ class HomeAccessory(Accessory):
         self.data: dict[str, Any] = {**entry.data, **entry.options}
         self._subscriptions: list[CALLBACK_TYPE] = []
         self._default_model = model
-        info = accessory_info(self.data, model, entry.entry_id)
+        info = accessory_info(
+            self.data, model, entry.entry_id, source_device_info(hass, self.data)
+        )
         self.set_info_service(
             manufacturer=info[CONF_MANUFACTURER],
             model=info[CONF_MODEL],
@@ -247,7 +323,12 @@ class HomeAccessory(Accessory):
 
     def apply_in_place(self, config: dict[str, Any]) -> None:
         """Update accessory information without re-publishing."""
-        info = accessory_info(config, self._default_model, self.entry.entry_id)
+        info = accessory_info(
+            config,
+            self._default_model,
+            self.entry.entry_id,
+            source_device_info(self.hass, config),
+        )
         service = self.get_service("AccessoryInformation")
         for key, char_name in INFO_CHARS.items():
             service.get_characteristic(char_name).set_value(info[key])
