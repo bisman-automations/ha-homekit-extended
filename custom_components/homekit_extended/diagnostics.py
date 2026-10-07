@@ -31,6 +31,12 @@ async def async_get_config_entry_diagnostics(
             else {"port": server.port}
         ),
         "paired": server.paired,
-        "paired_controllers": len(driver.state.paired_clients) if driver else 0,
+        "paired_controllers": (
+            server.paired_controllers
+            if getattr(server, "bridged", False)
+            else len(driver.state.paired_clients)
+            if driver
+            else 0
+        ),
         "accessory": server.accessory.to_HAP() if server.accessory else None,
     }

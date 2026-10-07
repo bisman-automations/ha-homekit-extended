@@ -79,11 +79,15 @@ In a bridge, the accessory:
 - Rejoins automatically when the bridge reloads, and comes back when the
   bridge starts if it was set up first.
 - Raises a repair if the bridge also publishes one of its entities (so it would
-  show up twice), if the bridge is deleted or switched to accessory mode, or if
-  the bridge is full. Setup warns about duplicates before you finish, too.
+  show up twice), if the bridge is deleted, disabled or switched to accessory
+  mode, or if the bridge is full. Setup warns about duplicates before you
+  finish, too. If the bridge is enabled again or switched back to bridge mode,
+  the accessory rejoins by itself.
 
 Moving an accessory into or out of a bridge adds it to Apple Home as a new
-accessory, so its room and automations need setting up again.
+accessory, so its room and automations need setting up again. After moving a
+standalone accessory into a bridge, remove the old standalone copy from Apple
+Home (it shows No Response).
 
 ### Managing accessories
 

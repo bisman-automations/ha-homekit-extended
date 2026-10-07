@@ -199,7 +199,7 @@ async def test_suggested_port_skips_used(hass: HomeAssistant, mock_hap_network) 
     result = await _start(hass, "air_purifier")
     section = result["data_schema"].schema["connection"]
     port = next(k for k in section.schema.schema if k == "port")
-    assert port.description["suggested_value"] == 51830
+    assert port.default() == 51830
 
 
 async def test_options_menu(hass: HomeAssistant) -> None:

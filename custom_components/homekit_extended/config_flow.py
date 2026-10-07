@@ -77,10 +77,22 @@ PORT_SELECTOR = selector.NumberSelector(
 )
 
 
-def _connection_fields() -> dict[vol.Marker, Any]:
+def _connection_fields(
+    defaults: dict[str, Any] | None = None,
+) -> dict[vol.Marker, Any]:
+    """Port, pairing code and name fields, optionally pre-filled.
+
+    Defaults rather than suggested values, because older Home Assistant
+    versions (2025.3, at least) don't fill suggested values inside a section.
+    """
+    defaults = defaults or {}
+
+    def default(key: str) -> dict[str, Any]:
+        return {"default": defaults[key]} if defaults.get(key) else {}
+
     return {
-        vol.Required(CONF_PORT): PORT_SELECTOR,
-        vol.Required(CONF_PIN): selector.TextSelector(),
+        vol.Required(CONF_PORT, **default(CONF_PORT)): PORT_SELECTOR,
+        vol.Required(CONF_PIN, **default(CONF_PIN)): selector.TextSelector(),
         vol.Optional(CONF_PLAIN_NAME, default=False): selector.BooleanSelector(),
     }
 
@@ -88,15 +100,19 @@ def _connection_fields() -> dict[vol.Marker, Any]:
 def _bridge_field(hass: HomeAssistant, current: str | None = None) -> dict:
     """ "Publish as" picker: standalone, or one of core HomeKit's bridges."""
     bridges = homekit_bridges(hass)
-    if current and current not in bridges:
-        bridges[current] = "Missing HomeKit Bridge"
-    if not bridges:
-        return {}
     options = [selector.SelectOptionDict(value=STANDALONE, label="Standalone")]
     options += [
         selector.SelectOptionDict(value=entry_id, label=f"Add to {title}")
         for entry_id, title in bridges.items()
     ]
+    if current and current not in bridges:
+        options.append(
+            selector.SelectOptionDict(
+                value=current, label="Missing HomeKit Bridge (pick another)"
+            )
+        )
+    if len(options) == 1:
+        return {}
     return {
         vol.Required(CONF_BRIDGE, default=STANDALONE): selector.SelectSelector(
             selector.SelectSelectorConfig(
@@ -161,9 +177,11 @@ def _used_ports(hass: HomeAssistant, exclude_entry_id: str | None = None) -> set
     ports: set[int] = set()
     for domain in (DOMAIN, *OTHER_HAP_DOMAINS):
         for entry in hass.config_entries.async_entries(domain):
-            if entry.entry_id == exclude_entry_id:
+            config = {**entry.data, **entry.options}
+            # Accessories in a bridge keep a port setting but don't use it.
+            if entry.entry_id == exclude_entry_id or config.get(CONF_BRIDGE):
                 continue
-            if (port := {**entry.data, **entry.options}.get(CONF_PORT)) is not None:
+            if (port := config.get(CONF_PORT)) is not None:
                 ports.add(int(port))
     return ports
 
@@ -258,6 +276,10 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 return await self.async_step_entities()
 
+        connection = (user_input or {}).get(CONF_CONNECTION) or {
+            CONF_PORT: await _next_free_port(self.hass),
+            CONF_PIN: generate_pin(),
+        }
         schema = vol.Schema(
             {
                 vol.Optional(CONF_NAME): selector.TextSelector(),
@@ -271,16 +293,11 @@ class HomeKitExtendedConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
                 **_bridge_field(self.hass),
                 vol.Required(CONF_CONNECTION): section(
-                    vol.Schema(_connection_fields()), {"collapsed": True}
+                    vol.Schema(_connection_fields(connection)), {"collapsed": True}
                 ),
             }
         )
-        suggested = user_input or {
-            CONF_CONNECTION: {
-                CONF_PORT: await _next_free_port(self.hass),
-                CONF_PIN: generate_pin(),
-            }
-        }
+        suggested = user_input or {CONF_CONNECTION: connection}
         return self.async_show_form(
             step_id=accessory_type.key,
             data_schema=self.add_suggested_values_to_schema(schema, suggested),
@@ -422,10 +439,15 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
         return bool(self._current.get(CONF_BRIDGE))
 
     def _save(self, changes: dict[str, Any]) -> ConfigFlowResult:
+        options = {**self.config_entry.options, **changes}
         if self.config_entry.state is not ConfigEntryState.LOADED:
-            # A failed entry has no update listener; retry it with the change.
+            # A failed entry has no update listener: store the change first,
+            # then retry setup with it.
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, options=options
+            )
             self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
-        return self.async_create_entry(data={**self.config_entry.options, **changes})
+        return self.async_create_entry(data=options)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -531,18 +553,27 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
         current = self._current
         if user_input is not None:
             if bridge := _chosen_bridge(user_input):
-                return self._save({CONF_BRIDGE: bridge})
-            data, errors = await _validate_connection(
-                self.hass,
-                user_input,
-                self.config_entry.entry_id,
-                current_port=None if self._bridged else current.get(CONF_PORT),
-            )
-            if not errors:
-                return self._save({**data, CONF_BRIDGE: None})
+                if bridge in homekit_bridges(self.hass):
+                    return self._save({CONF_BRIDGE: bridge})
+                errors[CONF_BRIDGE] = "bridge_missing"
+            else:
+                data, errors = await _validate_connection(
+                    self.hass,
+                    user_input,
+                    self.config_entry.entry_id,
+                    current_port=None if self._bridged else current.get(CONF_PORT),
+                )
+                if not errors:
+                    return self._save({**data, CONF_BRIDGE: None})
         suggested = {
             CONF_BRIDGE: current.get(CONF_BRIDGE) or STANDALONE,
-            CONF_PORT: current.get(CONF_PORT) or await _next_free_port(self.hass),
+            CONF_PORT: (
+                current[CONF_PORT]
+                if current.get(CONF_PORT)
+                and int(current[CONF_PORT])
+                not in _used_ports(self.hass, self.config_entry.entry_id)
+                else await _next_free_port(self.hass)
+            ),
             CONF_PIN: current.get(CONF_PIN) or generate_pin(),
             CONF_PLAIN_NAME: current.get(CONF_PLAIN_NAME, False),
         }

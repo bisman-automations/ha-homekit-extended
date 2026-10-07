@@ -16,9 +16,11 @@ from homeassistant.helpers.typing import ConfigType
 
 from .bridge import (
     BridgedAccessoryServer,
+    aid_key,
     async_follow_bridges,
     async_install_hook,
     homekit_bridges,
+    running_homekit,
 )
 from .const import CONF_BRIDGE, CONF_PORT, DOMAIN, SIGNAL_PAIRING_CHANGED
 from .driver import (
@@ -42,6 +44,15 @@ type HomeKitExtendedConfigEntry = ConfigEntry[
     HomeKitAccessoryServer | BridgedAccessoryServer
 ]
 DATA_HOOKED = f"{DOMAIN}_hooked"
+BRIDGE_ISSUES = ("bridge_missing", "bridge_unsupported", "bridge_full")
+
+
+@callback
+def _async_clear_issues(
+    hass: HomeAssistant, entry_id: str, kinds: tuple[str, ...]
+) -> None:
+    for kind in kinds:
+        ir.async_delete_issue(hass, DOMAIN, f"{kind}_{entry_id}")
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -58,6 +69,8 @@ async def async_setup_entry(
     """Start publishing the entry's accessory."""
     if {**entry.data, **entry.options}.get(CONF_BRIDGE):
         return await _async_setup_bridged(hass, entry)
+    # Moved out of a bridge: its repairs no longer apply.
+    _async_clear_issues(hass, entry.entry_id, (*BRIDGE_ISSUES, "duplicate_entities"))
 
     @callback
     def _pairing_changed() -> None:
@@ -129,8 +142,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await IIDStorage(
         hass, IID_MANAGER_STORAGE_VERSION, iid_storage_key(entry.entry_id)
     ).async_remove()
-    for kind in ("bridge_missing", "bridge_unsupported", "bridge_full"):
-        ir.async_delete_issue(hass, DOMAIN, f"{kind}_{entry.entry_id}")
+    _async_clear_issues(hass, entry.entry_id, (*BRIDGE_ISSUES, "duplicate_entities"))
+    # Free the accessory ID it had in a core bridge.
+    bridge_id = {**entry.data, **entry.options}.get(CONF_BRIDGE)
+    homekit = running_homekit(hass, bridge_id) if bridge_id else None
+    if homekit is not None and homekit.aid_storage is not None:
+        homekit.aid_storage.delete_aid(aid_key(entry.entry_id))
     hass.data.get(DATA_QR_TOKENS, {}).pop(entry.entry_id, None)
 
 

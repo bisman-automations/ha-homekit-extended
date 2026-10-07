@@ -12,7 +12,8 @@ import homeassistant.components
 
 COMPONENTS = Path(homeassistant.components.__path__[0])
 
-for domain in ("homekit", "camera", "ffmpeg"):
+# homekit_controller's aiohomekit is the HAP client in test_end_to_end.py.
+for domain in ("homekit", "camera", "ffmpeg", "homekit_controller"):
     manifest = json.loads((COMPONENTS / domain / "manifest.json").read_text())
     for requirement in manifest.get("requirements", []):
         print(requirement)

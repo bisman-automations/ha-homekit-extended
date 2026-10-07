@@ -19,6 +19,7 @@ from homeassistant.config_entries import (
     SIGNAL_CONFIG_ENTRY_CHANGED,
     ConfigEntry,
     ConfigEntryChange,
+    ConfigEntryState,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
@@ -45,7 +46,7 @@ def aid_key(entry_id: str) -> str:
 
 
 def homekit_bridges(hass: HomeAssistant) -> dict[str, str]:
-    """Core HomeKit entries running in bridge mode: entry id -> title."""
+    """Enabled core HomeKit entries in bridge mode: entry id -> title."""
     from homeassistant.components.homekit.const import (
         CONF_HOMEKIT_MODE,
         DEFAULT_HOMEKIT_MODE,
@@ -55,7 +56,8 @@ def homekit_bridges(hass: HomeAssistant) -> dict[str, str]:
     return {
         entry.entry_id: entry.title
         for entry in hass.config_entries.async_entries(HOMEKIT_DOMAIN)
-        if {**entry.data, **entry.options}.get(CONF_HOMEKIT_MODE, DEFAULT_HOMEKIT_MODE)
+        if entry.disabled_by is None
+        and {**entry.data, **entry.options}.get(CONF_HOMEKIT_MODE, DEFAULT_HOMEKIT_MODE)
         == HOMEKIT_MODE_BRIDGE
     }
 
@@ -103,7 +105,15 @@ def async_install_hook(hass: HomeAssistant) -> bool:
         bridge = await original(self, *args, **kwargs)
         attached = _registry(self.hass).get(self._entry_id, {})  # noqa: SLF001
         for server in list(attached.values()):
-            server.async_attach(self)
+            # Never let one of ours stop the user's bridge from starting.
+            try:
+                server.async_attach(self)
+            except Exception:
+                _LOGGER.exception(
+                    "Failed to add %s to HomeKit Bridge %s",
+                    server.entry.title,
+                    server.bridge_name,
+                )
         return bridge
 
     setattr(_async_create_bridge_accessory, HOOK_MARKER, True)
@@ -113,11 +123,27 @@ def async_install_hook(hass: HomeAssistant) -> bool:
 
 @callback
 def async_follow_bridges(hass: HomeAssistant) -> Callable[[], None]:
-    """Reload our accessories when the core bridge they live in is deleted."""
+    """Reload our accessories when their bridge goes away.
+
+    That's when the core entry is deleted, disabled or switched to accessory
+    mode; setup then raises a repair. Reloads and restarts of the bridge need
+    nothing here: the hook adds the accessory again when it's rebuilt.
+    """
 
     @callback
     def _changed(change: ConfigEntryChange, entry: ConfigEntry) -> None:
-        if entry.domain != HOMEKIT_DOMAIN or change is not ConfigEntryChange.REMOVED:
+        if entry.domain != HOMEKIT_DOMAIN:
+            return
+        if change is not ConfigEntryChange.REMOVED and (
+            entry.entry_id in homekit_bridges(hass)
+        ):
+            # Usable again (re-enabled or back in bridge mode): retry ours.
+            for ours in hass.config_entries.async_entries(DOMAIN):
+                if (
+                    ours.state is ConfigEntryState.SETUP_ERROR
+                    and {**ours.data, **ours.options}.get(CONF_BRIDGE) == entry.entry_id
+                ):
+                    hass.config_entries.async_schedule_reload(ours.entry_id)
             return
         for server in list(_registry(hass).get(entry.entry_id, {}).values()):
             hass.config_entries.async_schedule_reload(server.entry.entry_id)
@@ -143,6 +169,8 @@ class BridgedAccessoryServer:
     bridged = True
     driver = None
     iid_storage = None
+    # No pairing of its own, so no QR code.
+    setup_uri = None
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize."""
@@ -166,18 +194,33 @@ class BridgedAccessoryServer:
 
     @property
     def paired(self) -> bool:
-        """Return true if the bridge is paired with Apple Home."""
-        driver = getattr(self.homekit, "driver", None)
-        return bool(driver and driver.state.paired)
+        """Return true if the accessory is in a bridge paired with Apple Home."""
+        return self.attached and bool(self.homekit.driver.state.paired)  # type: ignore[union-attr]
 
     @property
-    def attached(self) -> bool:
-        """Return true while the accessory is in a running bridge."""
+    def paired_controllers(self) -> int:
+        """Apple Home controllers paired with the bridge."""
+        driver = getattr(self.homekit, "driver", None)
+        return len(driver.state.paired_clients) if driver else 0
+
+    @property
+    def _in_bridge(self) -> bool:
         bridge = getattr(self.homekit, "bridge", None)
         return (
             self.accessory is not None
             and bridge is not None
             and bridge.accessories.get(self.accessory.aid) is self.accessory
+        )
+
+    @property
+    def attached(self) -> bool:
+        """Return true while the accessory is in the bridge's current, live copy."""
+        from homeassistant.components.homekit import STATUS_RUNNING
+
+        return (
+            self._in_bridge
+            and self.homekit is running_homekit(self.hass, self.bridge_entry_id)
+            and self.homekit.status == STATUS_RUNNING  # type: ignore[union-attr]
         )
 
     def async_apply_in_place(self) -> bool:
@@ -199,19 +242,20 @@ class BridgedAccessoryServer:
 
     async def async_start(self) -> None:
         """Join the bridge now if it's built, or when it next starts."""
-        _registry(self.hass).setdefault(self.bridge_entry_id, {})[
-            self.entry.entry_id
-        ] = self
         homekit = running_homekit(self.hass, self.bridge_entry_id)
         if homekit is not None and getattr(homekit, "bridge", None) is not None:
             self.async_attach(homekit)
+        # Only once attaching worked, so a failed setup isn't retried by core.
+        _registry(self.hass).setdefault(self.bridge_entry_id, {})[
+            self.entry.entry_id
+        ] = self
 
     @callback
     def async_attach(self, homekit: HomeKit) -> None:
         """Add the accessory to a core bridge that has just been built."""
         bridge = homekit.bridge
         assert bridge is not None and homekit.aid_storage is not None
-        if self.homekit is homekit and self.attached:
+        if self.homekit is homekit and self._in_bridge:
             return
         if (previous := self._async_discard()) is not None:
             self.hass.async_create_task(previous.async_stop())  # type: ignore[attr-defined]
@@ -294,6 +338,5 @@ class BridgedAccessoryServer:
         attached.pop(self.entry.entry_id, None)
         if (accessory := self._async_discard()) is not None:
             await accessory.async_stop()  # type: ignore[attr-defined]
-        ir.async_delete_issue(
-            self.hass, DOMAIN, f"duplicate_entities_{self.entry.entry_id}"
-        )
+        for kind in ("duplicate_entities", "bridge_full"):
+            ir.async_delete_issue(self.hass, DOMAIN, f"{kind}_{self.entry.entry_id}")

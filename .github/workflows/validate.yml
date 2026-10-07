@@ -38,6 +38,22 @@ jobs:
       - run: ruff format --check custom_components tests
       - run: pytest -q
 
+  # The oldest Home Assistant version hacs.json allows.
+  tests-minimum:
+    name: tests (HA 2025.3, oldest supported)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      # aiohttp 3.11.13 was yanked but is what Home Assistant 2025.3 pins.
+      - run: >-
+          pip install "pytest-homeassistant-custom-component==0.13.225"
+          "aiohttp==3.11.13" HAP-python PyQRCode base36
+      - run: pip install $(python scripts/core_requirements.py)
+      - run: pytest -q
+
   # Bridge mode hooks into core HomeKit, so run the tests against upcoming
   # Home Assistant releases too. These report problems early without blocking.
   tests-upcoming:

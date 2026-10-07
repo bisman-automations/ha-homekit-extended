@@ -326,7 +326,8 @@ class HomeAccessory(Accessory):
         self.hass = hass
         self.entry = entry
         self.data: dict[str, Any] = {**entry.data, **entry.options}
-        self.config = self.data
+        # Read by core HomeKit's diagnostics, which don't redact it.
+        self.config = {k: v for k, v in self.data.items() if k != "pin"}
         self._subscriptions: list[CALLBACK_TYPE] = []
         self._tracked: list[str] = []
         self._default_model = model
@@ -351,6 +352,15 @@ class HomeAccessory(Accessory):
         service = self.get_service("AccessoryInformation")
         for key, char_name in INFO_CHARS.items():
             service.get_characteristic(char_name).set_value(info[key])
+
+    def add_protocol_version_service(self) -> None:
+        """Leave out HAP's protocol information service.
+
+        pyhap adds it when an accessory is created with the standalone AID.
+        Versions before 2.0.0 created accessories without an AID, so they
+        never had it; adding it now would shift every instance ID after the
+        accessory information service and break existing pairings.
+        """
 
     @property
     def name(self) -> str:

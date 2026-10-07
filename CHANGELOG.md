@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     bridge reloads, and is added or removed live when you change it, without
     restarting the bridge.
   - Repairs explain when the bridge also publishes the same entities (they
-    would show up twice), when the bridge is deleted or switched to accessory
-    mode, and when it already has HomeKit's maximum of 150 accessories. Setup
-    also warns about duplicates before you finish.
+    would show up twice), when the bridge is deleted, disabled or switched to
+    accessory mode, and when it already has HomeKit's maximum of 150
+    accessories. Setup also warns about duplicates before you finish. When the
+    bridge is enabled again or switched back, the accessory rejoins by itself.
+  - A problem adding one of these accessories never stops the bridge itself
+    from starting.
   - The **Paired** sensor shows whether the bridge is paired, and diagnostics
     show which bridge the accessory is in.
 - **Stable instance IDs.** Every service and characteristic keeps a stored ID,
@@ -32,9 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **No Response when unavailable.** Apple Home shows an accessory as not
   responding when every entity it mirrors is unavailable, the same as core
   HomeKit accessories.
-- CI now also runs the tests against Home Assistant's beta and development
-  versions, so changes to core HomeKit show up before they're released. The
-  tests pass on 2026.10 beta and 2026.11 dev.
+- CI now also runs the tests against the oldest supported Home Assistant
+  version (2025.3) and against the beta and development versions, so changes
+  to core HomeKit show up before they're released. A new
+  end-to-end test runs the real HAP servers and pairs with them using
+  aiohomekit, the library behind Home Assistant's HomeKit Device integration.
+  The tests pass on 2025.3 (the oldest supported version), 2026.2, 2026.10
+  beta and 2026.11 dev.
+
+### Fixed
+- On older Home Assistant versions (2025.3, for example) the suggested port
+  and pairing code under **Connection** were left empty when adding an
+  accessory. They're filled in on every version now.
 
 ### Changed
 - HomeKit Extended now depends on Home Assistant's HomeKit Bridge integration

@@ -357,6 +357,7 @@
       "serial_too_short": "Use at least 2 characters, or leave it empty.",
       "invalid_firmware": "HomeKit only accepts versions like 1, 1.2 or 1.2.3.",
       "info_too_long": "Use 64 characters or fewer.",
+      "bridge_missing": "That HomeKit Bridge no longer exists or isn't in bridge mode. Pick another, or Standalone.",
       "master_is_zone": "The pump or master valve can't also be a zone.",
       "no_buttons_selected": "Select at least one event entity.",
       "no_outlets_selected": "Select at least one switch.",
@@ -495,6 +496,7 @@
       "serial_too_short": "Use at least 2 characters, or leave it empty.",
       "invalid_firmware": "HomeKit only accepts versions like 1, 1.2 or 1.2.3.",
       "info_too_long": "Use 64 characters or fewer.",
+      "bridge_missing": "That HomeKit Bridge no longer exists or isn't in bridge mode. Pick another, or Standalone.",
       "master_is_zone": "The pump or master valve can't also be a zone.",
       "no_buttons_selected": "Select at least one event entity.",
       "no_outlets_selected": "Select at least one switch.",
@@ -518,7 +520,7 @@
   "issues": {
     "bridge_missing": {
       "title": "{name} has no HomeKit Bridge",
-      "description": "{name} was added to a HomeKit Bridge that has been deleted or switched to accessory mode, so it isn't in Apple Home right now.\n\nOpen HomeKit Extended, choose **Configure** on {name}, then **Bridge, port and pairing code** to pick another bridge or publish it standalone."
+      "description": "{name} was added to a HomeKit Bridge that has been deleted, disabled or switched to accessory mode, so it isn't in Apple Home right now. If you enable the bridge again or switch it back to bridge mode, {name} rejoins it by itself.\n\nOpen HomeKit Extended, choose **Configure** on {name}, then **Bridge, port and pairing code** to pick another bridge or publish it standalone."
     },
     "bridge_unsupported": {
       "title": "{name} can't join a HomeKit Bridge in this version of Home Assistant",
