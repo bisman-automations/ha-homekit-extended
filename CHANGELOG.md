@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-10-07
+
+### Added
+- **Resume a paused run from Apple Home.** When a run of all zones was paused
+  on the controller (Rain Bird Extended 1.4's **Pause** button), the Irrigation
+  System shows as off, and turning it on presses **Resume** instead of
+  starting over, so it carries on where it stopped.
+
 ## [2.3.0] - 2026-10-07
 
 ### Added
@@ -270,6 +278,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.4.0
 [2.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.3.0
 [2.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.2.0
 [2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.1.0

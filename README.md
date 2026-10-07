@@ -145,6 +145,9 @@ controls; nothing extra appears in Apple Home.
   Bird Extended 1.2 and newer), the Irrigation System's switch uses them:
   - Turning it on presses Run all zones, so the controller runs the zones in
     the order and with the cycle and soak set in its own options.
+    If a run was paused on the controller (Rain Bird Extended 1.4's
+    **Pause**), turning it on presses **Resume** instead, so it carries on
+    where it stopped. A paused run shows as off.
   - Turning it off presses Stop irrigation, which also stops Rain Bird
     programs and schedules.
   - The system shows as running whenever the controller is irrigating,

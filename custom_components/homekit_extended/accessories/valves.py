@@ -857,7 +857,7 @@ class ValveGroupAccessory(HomeAccessory):
     # Controller "run all zones"
 
     def _start_controller_run(self) -> None:
-        """Ask the controller to run all zones, in its own order."""
+        """Ask the controller to run all zones, or carry on with a paused run."""
         assert self.controller.run_all
         self._sequence.clear()
         self._sequence_current = None
@@ -865,7 +865,19 @@ class ValveGroupAccessory(HomeAccessory):
         self._controller_starting = self.hass.loop.call_later(
             CONTROLLER_START_GRACE, self._async_controller_start_expired
         )
-        self.call_service("button", "press", self.controller.run_all)
+        button = (
+            self.controller.resume
+            if self.controller.resume and self._controller_paused()
+            else self.controller.run_all
+        )
+        self.call_service("button", "press", button)
+
+    def _controller_paused(self) -> bool:
+        """Whether the controller has a paused run it can resume."""
+        if not self.controller.running:
+            return False
+        state = self.hass.states.get(self.controller.running)
+        return state is not None and bool(state.attributes.get("paused"))
 
     @callback
     def _async_controller_start_expired(self) -> None:
@@ -1019,7 +1031,8 @@ class IrrigationAccessory(ValveGroupAccessory):
 
         With a controller "run all zones" button (Rain Bird Extended), the
         controller runs its own sequence, with its zone order and cycle and
-        soak; otherwise the zones are run from here.
+        soak, or resumes the run that was paused there; otherwise the zones
+        are run from here.
         """
         if self.controller.run_all:
             self._start_controller_run()

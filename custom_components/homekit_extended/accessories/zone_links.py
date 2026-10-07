@@ -118,6 +118,7 @@ def seconds_until(state: State | None) -> int:
 # (Rain Bird Extended's names; other integrations can use the same keys).
 RUN_ALL_KEYS = frozenset({"run_all_zones"})
 STOP_KEYS = frozenset({"stop_irrigation"})
+RESUME_KEYS = frozenset({"resume"})
 RUNNING_KEYS = frozenset({"irrigating"})
 
 
@@ -133,6 +134,7 @@ class ControllerLinks:
     run_all: str | None = None
     stop: str | None = None
     running: str | None = None
+    resume: str | None = None
 
     def __bool__(self) -> bool:
         """Return true if anything is linked."""
@@ -169,6 +171,8 @@ def find_controller_links(
             found.setdefault("run_all", entry.entity_id)
         elif entry.domain == "button" and key in STOP_KEYS:
             found.setdefault("stop", entry.entity_id)
+        elif entry.domain == "button" and key in RESUME_KEYS:
+            found.setdefault("resume", entry.entity_id)
         elif entry.domain == "binary_sensor" and key in RUNNING_KEYS:
             found.setdefault("running", entry.entity_id)
     return ControllerLinks(**found)

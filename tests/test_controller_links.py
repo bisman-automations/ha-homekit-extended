@@ -267,6 +267,7 @@ async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> Non
 
 RUN_ALL = "button.rain_bird_controller_run_all_zones"
 STOP = "button.rain_bird_controller_stop_irrigation"
+RESUME = "button.rain_bird_controller_resume"
 IRRIGATING = "binary_sensor.rain_bird_controller_irrigating"
 
 
@@ -276,6 +277,7 @@ def _controller_buttons(hass: HomeAssistant, controller_id: str) -> None:
     for domain, key in (
         ("button", "run_all_zones"),
         ("button", "stop_irrigation"),
+        ("button", "resume"),
         ("binary_sensor", "irrigating"),
     ):
         entities.async_get_or_create(
@@ -384,3 +386,27 @@ async def test_controller_run_all_off_uses_local_sequence(
     await hass.async_block_till_done()
     assert not presses
     assert [c.data["entity_id"] for c in opens] == ["valve.zone_1_valve"]
+
+
+async def test_paused_run_resumes(hass: HomeAssistant) -> None:
+    """A run paused on the controller shows as off and carries on when turned on."""
+    _controller_buttons(hass, _rain_bird(hass))
+    presses = async_mock_service(hass, "button", "press")
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    _, system = _system(hass, entry.entry_id)
+    hass.states.async_set(
+        IRRIGATING, "off", {"zones": [], "end": None, "paused": "run_all_zones"}
+    )
+    await hass.async_block_till_done()
+    assert system.get_characteristic("Active").value == 0
+
+    system.get_characteristic("Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in presses] == [RESUME]
+
+    # Nothing paused: a fresh run of all zones.
+    hass.states.async_set(IRRIGATING, "off", {"zones": [], "end": None, "paused": None})
+    system.get_characteristic("Active").client_update_value(0)
+    system.get_characteristic("Active").client_update_value(1)
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in presses][-1] == RUN_ALL
