@@ -225,5 +225,33 @@ async def test_end_to_end(hass: HomeAssistant, mock_async_zeroconf) -> None:
     await pairing.close()
 
     await hass.config_entries.async_unload(standalone.entry_id)
+
+    # Irrigation with zones as separate valves: one accessory, numbered valves.
+    zones_port = _free_port()
+    hass.states.async_set("valve.front", "closed", {"friendly_name": "Front Lawn"})
+    hass.states.async_set("valve.back", "closed", {"friendly_name": "Back Lawn"})
+    zones = MockConfigEntry(
+        domain=DOMAIN,
+        title="Yard",
+        data={
+            "accessory_type": "irrigation",
+            "port": zones_port,
+            "pin": PIN,
+            "valves": ["valve.front", "valve.back"],
+            "separate_zones": True,
+        },
+    )
+    zones.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(zones.entry_id)
+    await hass.async_block_till_done()
+    pairing = await _pair(hass, server(hass, zones.entry_id).driver, zones_port, PIN)
+    accessories = await pairing.list_accessories_and_characteristics()
+    assert [a["aid"] for a in accessories] == [1]
+    assert not _by_type(accessories[0], IRRIGATION)
+    valves = _by_type(accessories[0], VALVE)
+    assert len(valves) == 2
+    assert [v.get("primary", False) for v in valves] == [True, False]
+    await pairing.close()
+    await hass.config_entries.async_unload(zones.entry_id)
     await hass.config_entries.async_unload(core.entry_id)
     await hass.async_block_till_done()

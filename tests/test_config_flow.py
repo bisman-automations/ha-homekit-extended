@@ -123,6 +123,7 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
         "one_at_a_time": True,
         "master": None,
         "use_controller_timers": True,
+        "separate_zones": False,
         "device": device_id,
         "run_times": {"valve.front": 300, "valve.back": 1200},
     }

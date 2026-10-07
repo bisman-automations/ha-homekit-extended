@@ -9,6 +9,9 @@ Everything here maps onto native HomeKit behavior:
 - A valve that is unavailable shows as a fault (StatusFault).
 - An optional pump or master valve runs while any zone is open. It is driven
   from Home Assistant and never exposed to HomeKit.
+- An irrigation system can instead be published as plain, numbered Valve
+  services without the Irrigation System around them. Apple Home then shows
+  one tile and offers to show each zone as a tile of its own.
 - When a valve's device also has a run-time number and an end-time sensor
   (Rain Bird Extended, for example), the controller owns the run: run times
   read and write that number, the countdown comes from that sensor, and the
@@ -44,6 +47,7 @@ from ..const import (
     CONF_MASTER,
     CONF_ONE_AT_A_TIME,
     CONF_RUN_TIMES,
+    CONF_SEPARATE_ZONES,
     CONF_USE_CONTROLLER,
     CONF_VALVE_TYPE,
     CONF_VALVES,
@@ -126,6 +130,7 @@ def _irrigation_schema() -> dict[vol.Marker, Any]:
         vol.Required(CONF_ONE_AT_A_TIME, default=True): selector.BooleanSelector(),
         vol.Optional(CONF_MASTER): entity_field(MASTER_DOMAINS),
         vol.Required(CONF_USE_CONTROLLER, default=True): selector.BooleanSelector(),
+        vol.Required(CONF_SEPARATE_ZONES, default=False): selector.BooleanSelector(),
     }
 
 
@@ -343,21 +348,33 @@ class ValveGroupAccessory(HomeAccessory):
         self._pump_on = False
         self._pump_off_handle: asyncio.TimerHandle | None = None
         self._building = True
-
-        system = self.add_named_service(
-            self.SYSTEM_SERVICE, self.name, [CHAR_STATUS_FAULT, *self.system_chars()]
-        )
-        system.is_primary_service = True
-        self._system_active = system.configure_char(
-            CHAR_ACTIVE, value=HK_INACTIVE, setter_callback=self._set_system_active
-        )
-        self._system_fault = system.configure_char(CHAR_STATUS_FAULT, value=HK_NO_FAULT)
+        self._system_active: Characteristic | None = None
+        self._system_fault: Characteristic | None = None
         self._system_in_use: Characteristic | None = None
         self._system_remaining: Characteristic | None = None
-        self.configure_system(system)
 
-        for entity_id in self.valves:
-            system.add_linked_service(self._add_zone(entity_id))
+        if self.separate_zones():
+            # Numbered valves with no parent service.
+            self.add_service_label()
+            for index, entity_id in enumerate(self.valves, start=1):
+                zone = self._add_zone(entity_id, label_index=index)
+                zone.is_primary_service = index == 1
+        else:
+            system = self.add_named_service(
+                self.SYSTEM_SERVICE,
+                self.name,
+                [CHAR_STATUS_FAULT, *self.system_chars()],
+            )
+            system.is_primary_service = True
+            self._system_active = system.configure_char(
+                CHAR_ACTIVE, value=HK_INACTIVE, setter_callback=self._set_system_active
+            )
+            self._system_fault = system.configure_char(
+                CHAR_STATUS_FAULT, value=HK_NO_FAULT
+            )
+            self.configure_system(system)
+            for entity_id in self.valves:
+                system.add_linked_service(self._add_zone(entity_id))
 
         if self.master and (state := hass.states.get(self.master)) is not None:
             self._pump_on = state.state in ("on", *VALVE_OPEN_STATES)
@@ -391,7 +408,11 @@ class ValveGroupAccessory(HomeAccessory):
     def start_all(self) -> None:
         """Handle the parent service being turned on."""
 
-    def _add_zone(self, entity_id: str) -> Any:
+    def separate_zones(self) -> bool:
+        """Publish zones as numbered valves instead of under a parent service."""
+        return False
+
+    def _add_zone(self, entity_id: str, label_index: int | None = None) -> Any:
         links = self.links.get(entity_id, ZoneLinks())
         duration = self.run_times[entity_id]
         duration_props = DURATION_PROPERTIES
@@ -417,6 +438,7 @@ class ValveGroupAccessory(HomeAccessory):
                 CHAR_IS_CONFIGURED,
                 CHAR_STATUS_FAULT,
             ],
+            label_index=label_index,
             unique_id=entity_id,
         )
         service.configure_char(CHAR_VALVE_TYPE, value=self.valve_type())
@@ -696,14 +718,16 @@ class ValveGroupAccessory(HomeAccessory):
         if self._building:
             return
         running = any(zone.running for zone in self._zones.values())
-        self._system_active.set_value(
-            HK_ACTIVE if running or self._sequence_current else HK_INACTIVE
-        )
-        self._system_fault.set_value(
-            HK_FAULT
-            if any(zone.fault.value == HK_FAULT for zone in self._zones.values())
-            else HK_NO_FAULT
-        )
+        if self._system_active is not None:
+            self._system_active.set_value(
+                HK_ACTIVE if running or self._sequence_current else HK_INACTIVE
+            )
+        if self._system_fault is not None:
+            self._system_fault.set_value(
+                HK_FAULT
+                if any(zone.fault.value == HK_FAULT for zone in self._zones.values())
+                else HK_NO_FAULT
+            )
         if self._system_in_use is not None:
             self._system_in_use.set_value(HK_IN_USE if running else HK_NOT_IN_USE)
         if self._system_remaining is not None:
@@ -779,6 +803,10 @@ class IrrigationAccessory(ValveGroupAccessory):
     def start_all(self) -> None:
         """Turning the system on runs every enabled zone in turn."""
         self._start_sequence()
+
+    def separate_zones(self) -> bool:
+        """Plain valves let Apple Home show each zone as its own tile."""
+        return bool(self.data.get(CONF_SEPARATE_ZONES, False))
 
 
 class FaucetAccessory(ValveGroupAccessory):

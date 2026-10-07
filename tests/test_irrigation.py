@@ -273,3 +273,40 @@ async def test_remove_entry_deletes_pairing(hass: HomeAssistant) -> None:
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert not os.path.exists(path)
+
+
+async def test_separate_zones_layout(hass: HomeAssistant) -> None:
+    """Zones as numbered valves: no Irrigation System, Apple Home can split tiles."""
+    hass.states.async_set("switch.pump", "off")
+    entry = await _setup(hass, separate_zones=True, master="switch.pump")
+    acc = server(hass, entry.entry_id).accessory
+    services = services_by_type(acc)
+    assert "IrrigationSystem" not in services
+    valves = services["Valve"]
+    assert [char(v, "Name").value for v in valves] == ["Front Lawn", "Back Lawn"]
+    assert [char(v, "ServiceLabelIndex").value for v in valves] == [1, 2]
+    assert [v.is_primary_service for v in valves] == [True, False]
+    assert all(char(v, "ValveType").value == 1 for v in valves)
+    assert char(services["ServiceLabel"][0], "ServiceLabelNamespace").value == 1
+    assert acc.aid == 1  # still one standalone accessory, not a bridge
+
+    open_calls = async_mock_service(hass, "valve", "open_valve")
+    close_calls = async_mock_service(hass, "valve", "close_valve")
+    pump_on = async_mock_service(hass, "switch", "turn_on")
+    acc._set_zone_active("valve.front", 1)
+    acc._set_zone_active("valve.back", 1)  # one zone at a time still applies
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in open_calls] == ["valve.front", "valve.back"]
+    assert [c.data["entity_id"] for c in close_calls] == ["valve.front"]
+    assert pump_on
+
+
+async def test_switching_layout_republishes(hass: HomeAssistant) -> None:
+    """Turning separate valves on in options rebuilds the accessory."""
+    entry = await _setup(hass)
+    first = server(hass, entry.entry_id).accessory
+    hass.config_entries.async_update_entry(entry, options={"separate_zones": True})
+    await hass.async_block_till_done()
+    acc = server(hass, entry.entry_id).accessory
+    assert acc is not first
+    assert "IrrigationSystem" not in services_by_type(acc)

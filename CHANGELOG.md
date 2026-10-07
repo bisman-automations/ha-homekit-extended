@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-10-06
+
+### Added
+- **Irrigation zones as separate valves.** A new **Zones as separate valves**
+  option publishes each zone as a numbered valve instead of zones inside an
+  Irrigation System. It stays one accessory with one pairing code, standalone
+  or in a HomeKit Bridge, and Apple Home can show each valve as its own tile
+  (**Show as Separate Tiles**) so zones can go in different rooms. Run times,
+  enabling zones, one zone at a time, the pump and controller countdowns work
+  as before; there's no system switch to run every zone in turn.
+
 ## [2.0.0] - 2026-10-06
 
 ### Added
@@ -226,6 +237,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.1.0
 [2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.0.0
 [1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.5.0
 [1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.1

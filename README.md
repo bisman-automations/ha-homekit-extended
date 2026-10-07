@@ -142,6 +142,15 @@ controls; nothing extra appears in Apple Home.
   controller's run times and countdown**.
 - **Changes outside HomeKit**, for example from an automation or the controller
   itself, are mirrored to Apple Home.
+- **Zones as separate valves** (optional). Publishes each zone as a numbered
+  valve instead of zones inside an Irrigation System. It's still one accessory
+  with one pairing code, and Apple Home can show each valve as its own tile
+  (the accessory's settings → **Show as Separate Tiles**), so zones can go in
+  different rooms. Run times, enabling zones, one zone at a time, the pump and
+  controller countdowns all work the same; the only thing missing is the
+  system switch that runs every zone in turn. Changing this option rebuilds the
+  accessory, so Apple Home may need a moment to update, or a re-pair if it
+  keeps the old layout.
 
 ## Shower / Faucet
 
