@@ -410,3 +410,28 @@ async def test_paused_run_resumes(hass: HomeAssistant) -> None:
     system.get_characteristic("Active").client_update_value(1)
     await hass.async_block_till_done()
     assert [c.data["entity_id"] for c in presses][-1] == RUN_ALL
+
+
+async def test_device_linked_to_controller(hass: HomeAssistant) -> None:
+    """Our device shares the controller's MAC, so each shows the other as linked.
+
+    On Home Assistant before 2026.9 a shared MAC address would merge the two
+    devices, so nothing is shared there.
+    """
+    from custom_components.homekit_extended.accessories.base import (
+        LINKED_DEVICES_SUPPORTED,
+    )
+
+    controller_id = _rain_bird(hass)
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    devices = dr.async_get(hass)
+    (ours,) = dr.async_entries_for_config_entry(devices, entry.entry_id)
+    controller = devices.async_get(controller_id)
+    # Never merged: the Rain Bird device isn't ours, and ours is separate.
+    assert ours.id != controller_id
+    assert controller.name == "Rain Bird Controller"
+    mac = (dr.CONNECTION_NETWORK_MAC, "70:b8:f6:9a:5b:1c")
+    if LINKED_DEVICES_SUPPORTED:
+        assert ours.connections == {mac}
+    else:
+        assert ours.connections == set()

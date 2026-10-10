@@ -93,7 +93,10 @@ Home (it shows No Response).
 
 Each accessory gets a device page under HomeKit Extended with a **Paired**
 sensor, so you can see at a glance which ones are added to Apple Home (for an
-accessory in a bridge, whether the bridge is paired). Choose
+accessory in a bridge, whether the bridge is paired). On Home Assistant 2026.9 and
+newer, that device is also listed under **Linked devices** on the device it
+represents (your Rain Bird controller, for example), the way UniFi links its
+devices, because it shares that device's MAC address. Choose
 **Configure** on the entry to:
 
 - **Entities.** Change which entities the accessory mirrors.

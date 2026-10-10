@@ -8,11 +8,13 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import HomeKitExtendedConfigEntry
+from .accessories.base import LINKED_DEVICES_SUPPORTED, source_connections
 from .const import DOMAIN, MANUFACTURER, SIGNAL_PAIRING_CHANGED, VERSION
 
 
@@ -64,7 +66,8 @@ class PairedSensor(BinarySensorEntity):
         return {"port": server.port}
 
     async def async_added_to_hass(self) -> None:
-        """Update when pairing changes."""
+        """Link the device to the one it represents; update on pairing changes."""
+        self._async_link_device()
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -72,6 +75,19 @@ class PairedSensor(BinarySensorEntity):
                 self._async_changed,
             )
         )
+
+    @callback
+    def _async_link_device(self) -> None:
+        """Share the represented device's MAC address, so Home Assistant shows
+        this accessory under that device's linked devices (as UniFi does)."""
+        if not LINKED_DEVICES_SUPPORTED or self.device_entry is None:
+            return
+        config = {**self._entry.data, **self._entry.options}
+        connections = source_connections(self.hass, config)
+        if connections != self.device_entry.connections:
+            dr.async_get(self.hass).async_update_device(
+                self.device_entry.id, new_connections=connections
+            )
 
     @callback
     def _async_changed(self) -> None:

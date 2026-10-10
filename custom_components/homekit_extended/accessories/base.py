@@ -120,13 +120,17 @@ def configured_entity_ids(data: dict[str, Any]) -> list[str]:
     return found
 
 
-def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
-    """Manufacturer, model, serial and firmware of the device being represented.
+# Home Assistant 2026.9 made connections unique per integration instead of
+# globally. Before that, a device of ours with another device's MAC address
+# would be merged into that device instead of shown as linked to it.
+LINKED_DEVICES_SUPPORTED = hasattr(dr.DeviceRegistry, "async_get_device_by_connection")
 
-    Uses the device picked during setup, or else the device of the first
-    configured entity. Missing details are taken from the device it's
-    connected through (a Rain Bird zone's controller, for example). A device
-    without a serial number falls back to its MAC address.
+
+def source_devices(hass: HomeAssistant, data: dict[str, Any]) -> list[dr.DeviceEntry]:
+    """The device being represented, then each device it's connected through.
+
+    That's the device picked during setup, or else the device of the first
+    configured entity; a Rain Bird zone is followed by its controller.
     """
     devices = dr.async_get(hass)
     registry = er.async_get(hass)
@@ -138,10 +142,38 @@ def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, s
                 device = devices.async_get(entry.device_id)
                 if device is not None:
                     break
+    chain: list[dr.DeviceEntry] = []
+    while device is not None and device not in chain:
+        chain.append(device)
+        device = (
+            devices.async_get(device.via_device_id) if device.via_device_id else None
+        )
+    return chain
+
+
+def source_connections(
+    hass: HomeAssistant, data: dict[str, Any]
+) -> set[tuple[str, str]]:
+    """Hardware connections (MAC address) of the device being represented.
+
+    Taken from the first device in the chain that has any, so Rain Bird
+    zones give their controller's MAC address.
+    """
+    for device in source_devices(hass, data):
+        if device.connections:
+            return set(device.connections)
+    return set()
+
+
+def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
+    """Manufacturer, model, serial and firmware of the device being represented.
+
+    Missing details are taken from the device it's connected through (a Rain
+    Bird zone's controller, for example). A device without a serial number
+    falls back to its MAC address.
+    """
     info: dict[str, str] = {}
-    seen: set[str] = set()
-    while device is not None and device.id not in seen:
-        seen.add(device.id)
+    for device in source_devices(hass, data):
         mac = next(
             (
                 value.upper()
@@ -158,9 +190,6 @@ def source_device_info(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, s
         ):
             if value:
                 info.setdefault(key, str(value))
-        device = (
-            devices.async_get(device.via_device_id) if device.via_device_id else None
-        )
     return info
 
 
