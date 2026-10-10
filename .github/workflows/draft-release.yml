@@ -1,0 +1,86 @@
+name: Draft release
+
+# On every commit to main, create or refresh a draft release for the version
+# in manifest.json. Publishing the draft creates the tag, which runs the
+# tag-triggered release workflow (if this repo has one).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draft-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          marker='<!-- auto-draft-release -->'
+
+          version=$(jq -r .version custom_components/*/manifest.json | head -n1)
+          tag="v${version}"
+
+          releases=$(gh api "repos/${REPO}/releases?per_page=100")
+          latest=$(jq -r '[.[] | select((.draft | not) and (.prerelease | not))][0].tag_name // empty' <<<"$releases")
+
+          # This version is already out: draft the next patch instead.
+          if jq -e --arg t "$tag" 'any(.[]; .tag_name == $t and (.draft | not))' <<<"$releases" >/dev/null; then
+            IFS=. read -r major minor patch <<<"${version%%[-+]*}"
+            tag="v${major}.${minor}.$((patch + 1))"
+            echo "::notice::${version} is already released; drafting ${tag}. Bump manifest.json to the version you want before publishing."
+          fi
+
+          # Release notes: GitHub's generated notes (PRs, using .github/release.yml
+          # categories when present) plus the commits since the last release.
+          args=(-f tag_name="$tag" -f target_commitish="$SHA")
+          [ -n "$latest" ] && args+=(-f previous_tag_name="$latest")
+          notes=$(gh api -X POST "repos/${REPO}/releases/generate-notes" "${args[@]}" -q .body)
+
+          commits=""
+          if [ -n "$latest" ]; then
+            commits=$(gh api "repos/${REPO}/compare/${latest}...${SHA}" \
+              -q '.commits | reverse | .[] | "- \(.commit.message | split("\n")[0]) (\(.sha[0:7]))"')
+          fi
+
+          body="${notes}"
+          if [ -n "$commits" ]; then
+            body="${body}"$'\n\n'"### Commits"$'\n'"${commits}"
+          fi
+          body="${body}"$'\n\n'"${marker}"
+
+          prerelease=false
+          case "$tag" in *alpha*|*beta*|*rc*) prerelease=true ;; esac
+
+          draft_id=$(jq -r --arg t "$tag" '[.[] | select(.draft and .tag_name == $t)][0].id // empty' <<<"$releases")
+          if [ -n "$draft_id" ]; then
+            gh api -X PATCH "repos/${REPO}/releases/${draft_id}" \
+              -f name="$tag" -f target_commitish="$SHA" -f body="$body" -F prerelease="$prerelease" >/dev/null
+            echo "Updated draft ${tag}"
+          else
+            gh api -X POST "repos/${REPO}/releases" \
+              -f tag_name="$tag" -f name="$tag" -f target_commitish="$SHA" -f body="$body" \
+              -F draft=true -F prerelease="$prerelease" >/dev/null
+            echo "Created draft ${tag}"
+          fi
+
+          # Remove drafts this workflow made earlier for a different version
+          # (e.g. after the manifest version was bumped). Hand-made drafts are left alone.
+          jq -r --arg t "$tag" --arg m "$marker" \
+            '.[] | select(.draft and .tag_name != $t and ((.body // "") | contains($m))) | .id' <<<"$releases" |
+            while read -r id; do
+              gh api -X DELETE "repos/${REPO}/releases/${id}"
+              echo "Removed stale draft ${id}"
+            done
