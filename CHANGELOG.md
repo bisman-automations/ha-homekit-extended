@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-10-17
+
+### Fixed
+- The pairing QR code view reads Home Assistant from its typed application key
+  instead of the plain `"hass"` key that aiohttp is phasing out, ready for
+  Home Assistant 2026.11 and later.
+
+### Changed
+- Checked against Home Assistant 2026.11 (dev): no deprecations affect this
+  integration, and the tests pass from 2025.3 through 2026.11.
+- CI tests the current Home Assistant release on Python 3.14, which it has
+  needed since 2026.9; on 3.13 the job had quietly tested an older version.
+- The script that generates the config flow's text is now in the repository
+  (`scripts/gen_strings.py`), and `CLAUDE.md` describes how the repository is
+  maintained.
+
 ## [2.5.0] - 2026-10-10
 
 ### Added
@@ -289,6 +305,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.1
 [2.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.0
 [2.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.4.0
 [2.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.3.0

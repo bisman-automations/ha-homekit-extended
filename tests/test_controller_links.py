@@ -45,7 +45,7 @@ def _rain_bird(hass: HomeAssistant) -> str:
         manufacturer="Rain Bird",
         model="ARC8",
         sw_version="2.12",
-        connections={(dr.CONNECTION_NETWORK_MAC, "70:B8:F6:9A:5B:1C")},
+        connections={(dr.CONNECTION_NETWORK_MAC, "AA:BB:CC:DD:EE:01")},
     )
     for zone, name in ((1, "Front Lawn"), (2, "Back Lawn")):
         device = devices.async_get_or_create(
@@ -244,7 +244,7 @@ async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> Non
     info = server(hass, entry.entry_id).accessory.get_service("AccessoryInformation")
     assert info.get_characteristic("Manufacturer").value == "Rain Bird"
     assert info.get_characteristic("Model").value == "ARC8"
-    assert info.get_characteristic("SerialNumber").value == "70:B8:F6:9A:5B:1C"
+    assert info.get_characteristic("SerialNumber").value == "AA:BB:CC:DD:EE:01"
     assert info.get_characteristic("FirmwareRevision").value == "2.12"
 
     # The options step shows what an empty field falls back to.
@@ -253,7 +253,7 @@ async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> Non
         result["flow_id"], {"next_step_id": "info"}
     )
     assert "Rain Bird" in result["description_placeholders"]["defaults"]
-    assert "70:B8:F6:9A:5B:1C" in result["description_placeholders"]["defaults"]
+    assert "AA:BB:CC:DD:EE:01" in result["description_placeholders"]["defaults"]
 
     # A value set by hand still wins over the device.
     result = await hass.config_entries.options.async_configure(
@@ -430,7 +430,7 @@ async def test_device_linked_to_controller(hass: HomeAssistant) -> None:
     # Never merged: the Rain Bird device isn't ours, and ours is separate.
     assert ours.id != controller_id
     assert controller.name == "Rain Bird Controller"
-    mac = (dr.CONNECTION_NETWORK_MAC, "70:b8:f6:9a:5b:1c")
+    mac = (dr.CONNECTION_NETWORK_MAC, "aa:bb:cc:dd:ee:01")
     if LINKED_DEVICES_SUPPORTED:
         assert ours.connections == {mac}
     else:

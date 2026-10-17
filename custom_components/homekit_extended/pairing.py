@@ -12,6 +12,7 @@ import pyqrcode
 from homeassistant.components import persistent_notification
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.http import KEY_HASS
 
 from .const import DOMAIN
 
@@ -90,7 +91,7 @@ class PairingQRView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         """Return the QR code SVG for a valid entry and token."""
-        hass: HomeAssistant = request.app["hass"]
+        hass: HomeAssistant = request.app[KEY_HASS]
         entry_id = request.query.get("entry_id", "")
         token = request.query.get("token", "")
         expected = hass.data.get(DATA_QR_TOKENS, {}).get(entry_id)
