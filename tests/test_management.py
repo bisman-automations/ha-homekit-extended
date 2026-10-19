@@ -178,3 +178,16 @@ async def test_plain_name_option_installs_advertiser(hass: HomeAssistant) -> Non
     assert not isinstance(
         server(hass, other.entry_id).driver.advertiser, PlainNameAdvertiser
     )
+
+
+def test_versions_match() -> None:
+    """manifest.json and const.VERSION must be bumped together."""
+    import json
+    from pathlib import Path
+
+    from custom_components.homekit_extended.const import VERSION
+
+    manifest = Path(__file__).parent.parent / (
+        "custom_components/homekit_extended/manifest.json"
+    )
+    assert json.loads(manifest.read_text())["version"] == VERSION

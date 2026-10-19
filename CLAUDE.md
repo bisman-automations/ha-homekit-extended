@@ -48,9 +48,11 @@ ruff check custom_components tests scripts
 ruff format --check custom_components tests scripts
 ```
 
-For Home Assistant dev or beta, import Home Assistant before the test harness
-(it imports httpx first, which newer Home Assistant rejects):
-`python -c "import homeassistant, sys, pytest; sys.exit(pytest.main(['-q']))"`.
+For Home Assistant dev or beta, run `python scripts/run_upcoming_tests.py -q`
+instead of `pytest`. The test harness is built for released versions; the
+script imports Home Assistant first and bridges the harness's known gaps with
+newer versions. When a dev or beta job fails before any test runs (an import
+error inside `pytest_homeassistant_custom_component`), add the shim there.
 
 CI (`.github/workflows/validate.yml`) runs hassfest, HACS validation, and the
 tests on the current release, on 2025.3, and on Home Assistant beta and dev.

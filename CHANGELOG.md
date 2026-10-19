@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2026-10-18
+
+### Fixed
+- The firmware version accessories show in Apple Home (when it isn't set in
+  their accessory information) was still 2.5.1 in 2.5.2. It now matches the
+  release, and a test keeps the two in step.
+
+### Changed
+- The tests against Home Assistant's development version run again: the test
+  harness looks for a helper that Home Assistant 2026.11 moved, so a small
+  runner (`scripts/run_upcoming_tests.py`) points it to the new place before
+  the tests start.
+
 ## [2.5.2] - 2026-10-18
 
 ### Changed
@@ -311,6 +324,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.5.3]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.3
 [2.5.2]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.2
 [2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.1
 [2.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.0
