@@ -23,7 +23,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          ignore: brands
 
   # The current Home Assistant release. It has needed Python 3.14 since
   # 2026.9; on 3.13 pip would quietly install an older Home Assistant.

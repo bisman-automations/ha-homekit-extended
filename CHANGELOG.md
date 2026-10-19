@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.2] - 2026-10-18
+
+### Changed
+- The HACS check now runs every validation, including the brand icon, so the
+  integration can be listed in the HACS catalog.
+
 ## [2.5.1] - 2026-10-17
 
 ### Fixed
@@ -305,6 +311,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[2.5.2]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.2
 [2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.1
 [2.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.0
 [2.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.4.0
