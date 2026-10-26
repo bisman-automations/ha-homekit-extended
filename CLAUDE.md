@@ -128,12 +128,15 @@ is retried because aiohomekit and HAP-python occasionally fail at random.
   (`sort -V`: plain sorting puts `v1.10.0` before `v1.9.0`). Never add
   changes to a released version. If the manifest version has no tag yet,
   add to its CHANGELOG section instead of bumping again.
-- Every push to `main` ships as a release. In the same push: bump the
-  manifest version, and add a dated `## [X.Y.Z] - YYYY-MM-DD` section to
-  `CHANGELOG.md` (Keep a Changelog: Added, Changed, Deprecated, Removed,
-  Fixed, Security) with its compare link at the bottom. Small follow-ups can
-  collect under `## [Unreleased]` first; move them into the version section
-  when you bump.
+- Every push to `main` ships as a release. In that same commit, named
+  `Release X.Y.Z`, bump the manifest version and write the notes directly
+  under a new `## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md` (Keep a
+  Changelog: Added, Changed, Deprecated, Removed, Fixed, Security), with
+  that version's compare link at the bottom. There is no `## [Unreleased]`
+  section and no `[Unreleased]:` compare link. New work is not collected
+  under a holding heading and moved later; the release commit is where the
+  heading and the entries are written. The standards check fails if a
+  `## [Unreleased]` heading is present.
 - Ask Donavan before every push. Push fast-forward only: never force-push,
   rebase or amend anything already pushed, or rewrite history in any other
   way. Rewriting history orphans the release tags (it broke drafting in
