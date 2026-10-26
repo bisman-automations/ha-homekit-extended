@@ -1,6 +1,15 @@
-<img src="custom_components/homekit_extended/brand/icon@2x.png" alt="HomeKit Extended icon" width="128" align="right">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bisman-automations/ha-homekit-extended/main/custom_components/homekit_extended/brand/icon.png" alt="HomeKit Extended icon" width="128">
+</p>
 
 # HomeKit Extended
+
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.3%2B-blue.svg)](https://www.home-assistant.io/)
+[![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-homekit-extended)](https://github.com/bisman-automations/ha-homekit-extended/releases)
+[![Test](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/test.yml/badge.svg)](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/test.yml)
+[![Validate](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/validate.yml)
+[![License](https://img.shields.io/github/license/bisman-automations/ha-homekit-extended)](LICENSE)
 
 A Home Assistant custom integration that publishes HomeKit accessories which
 Home Assistant's built-in **HomeKit Bridge** can't build. The bridge turns each
@@ -27,24 +36,20 @@ pairing.
 
 ### HACS
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-homekit-extended&category=integration)
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-homekit-extended&category=integration)
 
-Click the button above, then install **HomeKit Extended** and restart Home
-Assistant. Or add it by hand:
+1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-homekit-extended` as an **Integration**.
+2. Download **HomeKit Extended** and restart Home Assistant.
 
-1. In HACS, open the menu and choose **Custom repositories**.
-2. Add `https://github.com/bisman-automations/ha-homekit-extended` with the category
-   **Integration**.
-3. Install **HomeKit Extended**, then restart Home Assistant.
-
-Requires Home Assistant 2025.3 or later.
+Requires **Home Assistant 2025.3 or newer**.
 
 ### Manual
 
-Copy `custom_components/homekit_extended` into your Home Assistant
-`config/custom_components/` folder, then restart.
+Download `homekit_extended.zip` from the [latest release](https://github.com/bisman-automations/ha-homekit-extended/releases/latest), unzip it into `config/custom_components/homekit_extended/`, and restart Home Assistant.
 
-## Adding an accessory
+## Setup
+
+[![Open your Home Assistant instance and start setting up HomeKit Extended.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homekit_extended)
 
 1. Go to **Settings → Devices & services → Add integration → HomeKit Extended**
    and pick the kind of accessory.
@@ -277,18 +282,50 @@ The integration ships its own icon in `custom_components/homekit_extended/brand/
 Home Assistant 2026.3 and later shows it on the integration card; older versions
 show a placeholder. The source artwork is `assets/icon.svg`.
 
-## Development
+## Troubleshooting
 
-```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements_test.txt ruff
-pytest
-ruff check custom_components tests && ruff format --check custom_components tests
+### Diagnostics and debug logs
+
+When something goes wrong, download diagnostics from **Settings → Devices & services → HomeKit Extended → ⋮ → Download diagnostics** and check the file before you share it.
+
+For debug logs, use **Enable debug logging** on the integration page, or add this to `configuration.yaml` and restart:
+
+```yaml
+logger:
+  logs:
+    custom_components.homekit_extended: debug
 ```
+
+Then open an [issue](https://github.com/bisman-automations/ha-homekit-extended/issues/new/choose) with the diagnostics, the log, and your Home Assistant and HomeKit Extended versions.
+
+## Development
 
 The tests run against a real Home Assistant core through
 `pytest-homeassistant-custom-component`. One test also starts the real HAP
-server on a local socket.
+server on a local socket. `python scripts/run_upcoming_tests.py` runs them
+against the next Home Assistant release.
+
+Tests run inside a real Home Assistant through
+[pytest-homeassistant-custom-component](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component).
+You need Python 3.14 for the current Home Assistant.
+
+```bash
+python3.14 -m venv .venv && . .venv/bin/activate
+pip install -r requirements_test.txt
+ruff check . && ruff format --check .
+pytest
+```
+
+The tests also use these Home Assistant core integrations, so install their libraries too:
+`homekit camera ffmpeg homekit_controller` (CI reads them from each integration's manifest).
+
+To test against the oldest supported Home Assistant (2025.3), use Python 3.13 and
+`pip install -r requirements_test_min.txt` instead.
+
+CI runs the same checks on every push and pull request, on both Home Assistant
+versions, plus hassfest, HACS validation and the shared repo standards, using the
+workflows in [bisman-automations/.github](https://github.com/bisman-automations/.github).
+Releases are drafted from [CHANGELOG.md](CHANGELOG.md); see [CLAUDE.md](CLAUDE.md).
 
 ## License
 

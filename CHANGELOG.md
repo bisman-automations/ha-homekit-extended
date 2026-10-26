@@ -1,37 +1,38 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
 
 ## [2.5.3] - 2026-10-18
 
-### Fixed
-- The firmware version accessories show in Apple Home (when it isn't set in
-  their accessory information) was still 2.5.1 in 2.5.2. It now matches the
-  release, and a test keeps the two in step.
-
 ### Changed
+
 - The tests against Home Assistant's development version run again: the test
   harness looks for a helper that Home Assistant 2026.11 moved, so a small
   runner (`scripts/run_upcoming_tests.py`) points it to the new place before
   the tests start.
 
+### Fixed
+
+- The firmware version accessories show in Apple Home (when it isn't set in
+  their accessory information) was still 2.5.1 in 2.5.2. It now matches the
+  release, and a test keeps the two in step.
+
 ## [2.5.2] - 2026-10-18
 
 ### Changed
+
 - The HACS check now runs every validation, including the brand icon, so the
   integration can be listed in the HACS catalog.
 
 ## [2.5.1] - 2026-10-17
 
-### Fixed
-- The pairing QR code view reads Home Assistant from its typed application key
-  instead of the plain `"hass"` key that aiohttp is phasing out, ready for
-  Home Assistant 2026.11 and later.
-
 ### Changed
+
 - Checked against Home Assistant 2026.11 (dev): no deprecations affect this
   integration, and the tests pass from 2025.3 through 2026.11.
 - CI tests the current Home Assistant release on Python 3.14, which it has
@@ -40,9 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scripts/gen_strings.py`), and `CLAUDE.md` describes how the repository is
   maintained.
 
+### Fixed
+
+- The pairing QR code view reads Home Assistant from its typed application key
+  instead of the plain `"hass"` key that aiohttp is phasing out, ready for
+  Home Assistant 2026.11 and later.
+
 ## [2.5.0] - 2026-10-10
 
 ### Added
+
 - **Linked devices.** An accessory's device now shares the MAC address of the
   device it represents, so Home Assistant lists them under each other's
   **Linked devices**: the Rain Bird controller's page shows the HomeKit
@@ -54,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.0] - 2026-10-07
 
 ### Added
+
 - **Resume a paused run from Apple Home.** When a run of all zones was paused
   on the controller (Rain Bird Extended 1.4's **Pause** button), the Irrigation
   System shows as off, and turning it on presses **Resume** instead of
@@ -62,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.3.0] - 2026-10-07
 
 ### Added
+
 - **The Irrigation System's switch uses the controller's own "run all zones".**
   When the controller has **Run all zones** and **Stop irrigation** buttons and
   an **Irrigating** sensor (Rain Bird Extended 1.2 and newer), turning the
@@ -75,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.2.0] - 2026-10-06
 
 ### Added
+
 - **Irrigation zones as separate accessories.** The new **Zone layout** choice
   replaces the **Zones as separate valves** switch and adds a third option:
   - **Irrigation System** (default) and **Separate valves** work as before.
@@ -89,12 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     the same in every layout.
 
 ### Changed
+
 - Entries with 2.1.0's **Zones as separate valves** switched on keep that
   layout and show it as **Separate valves** in the options.
 
 ## [2.1.0] - 2026-10-06
 
 ### Added
+
 - **Irrigation zones as separate valves.** A new **Zones as separate valves**
   option publishes each zone as a numbered valve instead of zones inside an
   Irrigation System. It stays one accessory with one pairing code, standalone
@@ -106,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - 2026-10-06
 
 ### Added
+
 - **Add accessories to a HomeKit Bridge.** Instead of its own port and pairing
   code, an accessory can now join one of the bridges from Home Assistant's
   HomeKit Bridge integration, so it appears in a bridge you've already paired
@@ -141,19 +155,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The tests pass on 2025.3 (the oldest supported version), 2026.2, 2026.10
   beta and 2026.11 dev.
 
-### Fixed
-- On older Home Assistant versions (2025.3, for example) the suggested port
-  and pairing code under **Connection** were left empty when adding an
-  accessory. They're filled in on every version now.
-
 ### Changed
+
 - HomeKit Extended now depends on Home Assistant's HomeKit Bridge integration
   and reuses its code for instance IDs. Nothing needs to be set up in it unless
   you want to add accessories to a bridge.
 
+### Fixed
+
+- On older Home Assistant versions (2025.3, for example) the suggested port
+  and pairing code under **Connection** were left empty when adding an
+  accessory. They're filled in on every version now.
+
 ## [1.5.0] - 2026-10-06
 
 ### Added
+
 - **Accessory information follows the device.** Manufacturer, model, serial
   number and firmware left empty now use the details Home Assistant already has
   for the device the accessory represents, instead of "HomeKit Extended".
@@ -165,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The accessory information screen lists what each empty field will use.
 
 ### Changed
+
 - Setup no longer copies the device's details into the accessory information
   fields. They stay empty and follow the device, so a firmware update on the
   device shows up in Apple Home without editing anything. Values typed in still
@@ -173,6 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.1] - 2026-10-06
 
 ### Fixed
+
 - The run-times screen no longer says every zone runs "up to 3600 seconds; 0
   runs until stopped". It now lists which zones are set on the controller,
   with the controller's real limits (for Rain Bird, 1 minute to 24 hours in
@@ -181,6 +200,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.0] - 2026-10-06
 
 ### Added
+
 - **Controller run times and countdowns for irrigation and showers.** When a
   valve's device also has a run-time `number` and a time-remaining timestamp
   `sensor`, the zone uses them. This is the same pattern as core HomeKit's
@@ -205,6 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] - 2026-10-06
 
 ### Added
+
 - **Accessory information** can now be changed: the manufacturer, model,
   serial number and firmware that Apple Home shows under an accessory's details.
   - If you pick a device during setup, these are filled in from that device;
@@ -221,7 +242,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] - 2026-10-06
 
+**Upgrading:**
+
+- A Buttons accessory that uses a multi-button entity gets new buttons, so
+  remove it from Apple Home and add it again: **Configure → Pairing → Reset
+  pairing**.
+
 ### Added
+
 - **Advertise without ID suffix** connection option. An accessory is
   discovered in Apple Home and Home Assistant as "Irrigation System" instead of
   "Irrigation System 8D111D". If another device on the network already uses that
@@ -234,18 +262,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Single-button entities, including Hue's `short_release` and `long_press`,
   work as before.
 
-### Upgrading
-- A Buttons accessory that uses a multi-button entity gets new buttons, so
-  remove it from Apple Home and add it again: **Configure → Pairing → Reset
-  pairing**.
-
 ### Fixed
+
 - The minimum Home Assistant version is now 2025.3, which 1.1.0 already needed.
   HACS offered 1.1.0 to 2025.1 and 2025.2, where it failed to load.
 
 ## [1.1.0] - 2026-10-06
 
+**Upgrading:**
+
+- Existing accessories keep their pairing. Because their services gained new
+  characteristics, Apple Home may show them as "No Response" until you remove
+  and re-add them. You can do this from **Configure → Pairing → Reset pairing**.
+
 ### Added
+
 - Six new accessory types:
   - Ceiling fan with light
   - Buttons and remotes from `event` entities (single, double and long press)
@@ -277,20 +308,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restarting the accessory.
 
 ### Changed
+
 - Turning the Irrigation System off now closes only the zones that are running.
 - Accessories now report "HomeKit Extended" as the manufacturer.
 
 ### Fixed
+
 - When an accessory's port was already in use, Home Assistant marked the entry
   as failed instead of retrying it. The cleanup after a failed start crashed and
   hid the real error. The entry now shows "Retrying setup".
 - The setup flow now also rejects ports used by the old `homekit_irrigation`
   and `homekit_air_purifier` integrations, or by anything else on the host.
-
-### Upgrading
-- Existing accessories keep their pairing. Because their services gained new
-  characteristics, Apple Home may show them as "No Response" until you remove
-  and re-add them. You can do this from **Configure → Pairing → Reset pairing**.
 
 ## [1.0.0] - 2026-10-06
 
@@ -298,6 +326,7 @@ First stable release. It merges `homekit-air-purifier` and `homekit-irrigation` 
 single `homekit_extended` integration.
 
 ### Added
+
 - The setup flow now starts with a menu where you pick the accessory type: an
   air purifier or an irrigation system.
 - Both accessory types now share one HAP driver lifecycle, and the HomeKit
@@ -313,6 +342,7 @@ single `homekit_extended` integration.
   "Open in HACS" button in the README.
 
 ### Changed
+
 - Irrigation remaining time is now calculated when HomeKit reads it, instead of
   being pushed every second.
 - Run times are now capped at HomeKit's maximum of 3600 seconds.
@@ -321,22 +351,24 @@ single `homekit_extended` integration.
 - Accessory names now come from the integration entry's title.
 
 ### Fixed
+
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
-[2.5.3]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.3
-[2.5.2]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.2
-[2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.1
-[2.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.5.0
-[2.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.4.0
-[2.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.3.0
-[2.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.2.0
-[2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.1.0
-[2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v2.0.0
-[1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.5.0
-[1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.1
-[1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.4.0
-[1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.3.0
-[1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.2.0
-[1.1.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.1.0
+[Unreleased]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.3...HEAD
+[2.5.3]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.2...v2.5.3
+[2.5.2]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.1...v2.5.2
+[2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.0...v2.5.1
+[2.5.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.5.0...v2.0.0
+[1.5.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.4.1...v1.5.0
+[1.4.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/bisman-automations/ha-homekit-extended/releases/tag/v1.0.0

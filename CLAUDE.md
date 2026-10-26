@@ -1,4 +1,4 @@
-# HomeKit Extended: working on this repo
+# HomeKit Extended: notes for Claude and other coding agents
 
 A Home Assistant custom integration (HACS) that publishes HomeKit accessories
 Home Assistant's own HomeKit Bridge can't build: irrigation systems, ceiling
@@ -14,50 +14,34 @@ Repo: `bisman-automations/ha-homekit-extended` (renamed from
 ## Every change
 
 1. **Tests and lint pass** (see Testing). Add or update tests for what changed.
-2. **CHANGELOG.md**: add a section at the top in Keep a Changelog style
-   (`## [x.y.z] - YYYY-MM-DD`, then `### Added`/`### Changed`/`### Fixed`), and
-   the compare/release link at the bottom. Write for users, in plain language.
-3. **Version**: bump it in both `custom_components/homekit_extended/manifest.json`
-   and `VERSION` in `const.py`. Semantic versioning: new feature → minor, fix →
-   patch, breaking → major.
-4. **Never edit a released version.** Check what's released first
-   (`gh api repos/bisman-automations/ha-homekit-extended/releases --jq '.[0].tag_name'`)
-   and start a new version if the one in the manifest is already out.
-5. **README.md**: update when behavior or options change.
-6. **Commit** with a conventional prefix (`feat:`, `fix:`, `docs:`, `test:`,
-   `ci:`, `feat!:` for breaking) and push to `main`. Then watch CI
-   (`gh run list -R bisman-automations/ha-homekit-extended -L 1`) until every job passes.
-
-## Releases
-
-Don't create tags or releases. On every push to `main`,
-`.github/workflows/draft-release.yml` creates or refreshes a draft release for
-the version in `manifest.json`; the maintainer publishes it. Tell him the
-version is ready to publish.
+2. **Version**: the version is in both `custom_components/homekit_extended/manifest.json`
+   and `VERSION` in `const.py`; bump both in the release commit.
+3. **README.md**: update when behavior or options change.
+4. **UI text** comes from `scripts/gen_strings.py` (see Layout).
 
 ## Testing
 
-Home Assistant 2026.9 and newer need Python 3.14; the oldest supported
-version (2025.3, from `hacs.json`) runs on 3.13.
+Home Assistant 2026.3 and newer need Python 3.14; the oldest supported
+version (2025.3, from `hacs.json`) runs on 3.13 (`requirements_test_min.txt`).
+
+Run the shared checks at the end of this file. The tests also need core
+HomeKit's requirements for the installed Home Assistant, which change between
+releases:
 
 ```
-pip install -r requirements_test.txt
-pip install $(python scripts/core_requirements.py)   # core HomeKit's requirements for this HA version
-pytest
-ruff check custom_components tests scripts
-ruff format --check custom_components tests scripts
+pip install $(python scripts/core_requirements.py)
 ```
+
+CI installs the same set with the `core-requirements` input
+(`homekit camera ffmpeg homekit_controller`).
 
 For Home Assistant dev or beta, run `python scripts/run_upcoming_tests.py -q`
 instead of `pytest`. The test harness is built for released versions; the
 script imports Home Assistant first and bridges the harness's known gaps with
 newer versions. When a dev or beta job fails before any test runs (an import
-error inside `pytest_homeassistant_custom_component`), add the shim there.
-
-CI (`.github/workflows/validate.yml`) runs hassfest, HACS validation, and the
-tests on the current release, on 2025.3, and on Home Assistant beta and dev.
-Run the suite on the oldest and newest versions yourself when touching
-anything version-sensitive.
+error inside `pytest_homeassistant_custom_component`), add the shim there. The
+Test workflow's **next** job runs this script against the newest pre-release
+harness.
 
 `tests/test_end_to_end.py` starts real HAP servers (core HomeKit's and ours)
 and pairs with them through aiohomekit. It is the only test that exercises the
@@ -122,3 +106,116 @@ is retried because aiohomekit and HAP-python occasionally fail at random.
 - Plain language, written for Home Assistant users.
 - Never put the maintainer's own details (MAC addresses, serial numbers,
   account numbers, addresses) in docs, tests or examples. Use placeholders.
+
+<!-- BEGIN bisman-automations shared rules -->
+<!-- This block is the same in every bisman-automations repo. Edit it in
+     bisman-automations/.github (templates/CLAUDE.shared.md) and copy it to
+     every repo; the Validate workflow's "standards" job checks it matches. -->
+
+## Shared rules (every bisman-automations repo)
+
+### Releases
+
+- The version lives in `custom_components/<domain>/manifest.json`. Anything
+  else that repeats it is called out in the repo-specific notes below and is
+  bumped in the same commit.
+- Versions follow [Semantic Versioning](https://semver.org): patch for fixes,
+  translations, docs and CI; minor for new features, options or entities;
+  major when something users rely on is removed or renamed (entities,
+  services, events, options) or setup has to be redone.
+- Check what is released before choosing a version:
+  `git ls-remote --tags origin | awk -F/ '{print $3}' | sort -V | tail -1`
+  (`sort -V`: plain sorting puts `v1.10.0` before `v1.9.0`). Never add
+  changes to a released version. If the manifest version has no tag yet,
+  add to its CHANGELOG section instead of bumping again.
+- Every push to `main` ships as a release. In the same push: bump the
+  manifest version, and add a dated `## [X.Y.Z] - YYYY-MM-DD` section to
+  `CHANGELOG.md` (Keep a Changelog: Added, Changed, Deprecated, Removed,
+  Fixed, Security) with its compare link at the bottom. Small follow-ups can
+  collect under `## [Unreleased]` first; move them into the version section
+  when you bump.
+- Ask Donavan before every push. Push fast-forward only: never force-push,
+  rebase or amend anything already pushed, or rewrite history in any other
+  way. Rewriting history orphans the release tags (it broke drafting in
+  ha-button-actions).
+- Pushing to `main` runs **Draft release**, which creates or refreshes a
+  draft `vX.Y.Z` with that version's CHANGELOG section as the notes, the
+  commits since the last release and `<domain>.zip`. **Donavan publishes
+  the draft himself**, and publishing creates the tag. Never create or push
+  tags, publish releases, or edit published releases.
+- Publishing runs **Release check**: the tag must match the manifest version
+  and the CHANGELOG, and be on `main`. If it fails, fix it with a new patch
+  release, not by moving the tag.
+
+### Commits
+
+- Author commits as `Donavan Becker <donavan.becker@icloud.com>` (set
+  `git config user.name` / `user.email` in the clone). HACS's
+  default-repository check needs the submitter to have a fair share of the
+  commits. Credit an AI assistant with a `Co-Authored-By:` trailer if you
+  like, never as the author.
+- Subject lines are plain, imperative and say what changed for the user
+  ("Show Pico remotes as unavailable when Lutron isn't running"). No
+  `fix:`/`feat:` prefixes. Release commits are "Release X.Y.Z".
+- Commit and push only when asked.
+
+### CI (shared workflows)
+
+- `.github/workflows/` holds four thin callers of the reusable workflows in
+  [bisman-automations/.github](https://github.com/bisman-automations/.github):
+  `test.yml` (lint, frontend, pytest on the oldest supported and the newest
+  Home Assistant, plus the upcoming one as information only), `validate.yml`
+  (hassfest, HACS, standards), `draft-release.yml` and `release-check.yml`.
+  Don't add jobs to the callers. Use the shared workflow's inputs, or change
+  the shared workflow so every repo gets the improvement.
+- `requirements_test.txt` leaves `pytest-homeassistant-custom-component`
+  unpinned (newest Home Assistant) and pins ruff (and mypy where used).
+  `requirements_test_min.txt` pins the harness release for the minimum in
+  `hacs.json`: the newest harness release of that month. CI fails if they
+  drift apart.
+- Raising the minimum Home Assistant means changing, together: `hacs.json`,
+  `requirements_test_min.txt`, `python-min` in `test.yml` (3.13 up to
+  2026.2, 3.14 from 2026.3), the README's Home Assistant badge, and a
+  CHANGELOG entry.
+- Home Assistant 2026.3 and newer need Python 3.14 (3.14.2+).
+- The published hassfest rejects `categories` in `manifest.json` and Pillow
+  in `requirements`. Leave both out.
+- Dependabot (`.github/dependabot.yml`) proposes action and pinned-tool
+  updates weekly. It ignores the test harness on purpose.
+- Test and Validate also run every Thursday, the day after Home Assistant's
+  betas come out. The **next** test job (newest pre-release harness) is
+  information only: when it fails, fix the cause before that release ships.
+
+### Before saying work is done
+
+Run from the repo root, in a Python 3.14 venv with `requirements_test.txt`
+installed:
+
+```
+ruff check .
+ruff format --check .
+pytest
+```
+
+Also run `node --test tests/*.mjs` when the repo has Node tests, mypy when
+the repo-specific notes list it, and the tests in a second venv with
+`requirements_test_min.txt` when a change could behave differently on the
+oldest supported Home Assistant. The standards check (also in CI) is
+`python <path to bisman-automations/.github>/scripts/check_repo.py .`.
+
+### Code and docs
+
+- Support every Home Assistant from the `hacs.json` minimum to the newest
+  release. Check for deprecations in the newest release and the beta.
+- Keep entity IDs, unique IDs, service names and event names stable. When
+  one has to change, migrate it and say so under Changed in the CHANGELOG.
+- `strings.json` and `translations/en.json` hold the same keys. Home
+  Assistant reads only `translations/`, so change both in the same commit.
+- Never put personal details in the repo (README, CHANGELOG, code, tests,
+  screenshots): no names, addresses, account or device identifiers, or real
+  entity IDs. Use placeholders such as `light.living_room`.
+- `README.md` is user documentation with the standard header (badges, HACS
+  and "add integration" My buttons) and sections Installation, Setup, ...,
+  Troubleshooting, Development, License. Use plain language and show names,
+  not entity IDs, wherever the UI does.
+<!-- END bisman-automations shared rules -->
