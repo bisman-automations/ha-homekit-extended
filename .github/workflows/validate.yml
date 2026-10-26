@@ -1,82 +1,24 @@
+# Validate: hassfest, the HACS checks, and the bisman-automations standards
+# check (layout, CHANGELOG, README, CLAUDE.md). Shared workflow:
+# https://github.com/bisman-automations/.github (.github/workflows/ha-validate.yml).
 name: Validate
 
 on:
   push:
+    branches: [main]
   pull_request:
+  # Weekly, to catch new hassfest and HACS rules.
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 6 * * 4"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  hassfest:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: hacs/action@main
-        with:
-          category: integration
-
-  # The current Home Assistant release. It has needed Python 3.14 since
-  # 2026.9; on 3.13 pip would quietly install an older Home Assistant.
-  tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-      - run: pip install -r requirements_test.txt ruff
-      - run: pip install $(python scripts/core_requirements.py)
-      - run: ruff check custom_components tests
-      - run: ruff format --check custom_components tests
-      - run: pytest -q
-
-  # The oldest Home Assistant version hacs.json allows.
-  tests-minimum:
-    name: tests (HA 2025.3, oldest supported)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      # aiohttp 3.11.13 was yanked but is what Home Assistant 2025.3 pins.
-      - run: >-
-          pip install "pytest-homeassistant-custom-component==0.13.225"
-          "aiohttp==3.11.13" HAP-python PyQRCode base36
-      - run: pip install $(python scripts/core_requirements.py)
-      - run: pytest -q
-
-  # Bridge mode hooks into core HomeKit, so run the tests against upcoming
-  # Home Assistant releases too. These report problems early without blocking.
-  tests-upcoming:
-    name: tests (HA ${{ matrix.channel }})
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - channel: beta
-            install: pip install --pre --upgrade homeassistant
-          - channel: dev
-            install: pip install "homeassistant @ git+https://github.com/home-assistant/core.git@dev"
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-      - run: pip install -r requirements_test.txt
-      - run: ${{ matrix.install }}
-      - run: pip install $(python scripts/core_requirements.py)
-      - run: python -c "import homeassistant.const as c; print('Home Assistant', c.__version__)"
-      # Bridges gaps between the test harness and newer Home Assistant.
-      - run: python scripts/run_upcoming_tests.py -q
+  validate:
+    uses: bisman-automations/.github/.github/workflows/ha-validate.yml@main
