@@ -34,14 +34,23 @@ pairing.
 
 ## Installation
 
-### HACS
+Requires **Home Assistant 2026.8 or newer**.
+
+### Marketplace (Home Assistant 2026.11 and newer)
+
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=bisman-automations&repository=ha-homekit-extended&category=integration)
+
+1. Select the button above, or go to **Settings > Marketplace**, choose **Add from link**, enter `bisman-automations/ha-homekit-extended` under **GitHub link**, and select **Add**. Adding a repository from a link needs a GitHub connection; the Marketplace asks you to connect one if you haven't.
+2. Install **HomeKit Extended**. If a repair asks you to restart Home Assistant, restart it.
+
+New versions show up under **Settings > Updates**. Already installed HomeKit Extended with HACS? There's nothing to do: Home Assistant moves it into the Marketplace the first time it starts on 2026.11.
+
+### HACS (Home Assistant 2026.10 and older)
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-homekit-extended&category=integration)
 
 1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-homekit-extended` as an **Integration**.
 2. Download **HomeKit Extended** and restart Home Assistant.
-
-Requires **Home Assistant 2026.8 or newer**.
 
 ### Manual
 
@@ -271,7 +280,7 @@ is unavailable.
 
 This integration replaces both standalone integrations.
 
-1. Delete the old integration's entries, then remove it in HACS.
+1. Delete the old integration's entries, then remove it in the Marketplace (or HACS before Home Assistant 2026.11).
 2. Remove the old accessories from Apple Home.
 3. Add them again here. Pairing can't be carried over, because the pairing
    state is stored per integration.
