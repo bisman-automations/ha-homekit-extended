@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 import logging
 import re
@@ -257,6 +257,15 @@ def entity_list(raw: Any) -> list[str]:
 # Device auto-detection
 
 
+def all_devices(registry: dr.DeviceRegistry) -> list[dr.DeviceEntry]:
+    """Every device. Home Assistant 2026.9 made ``registry.devices`` iterate
+    over entries and deprecated using it as a mapping; 2026.8 is a mapping."""
+    items = registry.devices
+    if isinstance(items, Mapping):
+        return list(items.values())
+    return list(items)
+
+
 def device_entities(hass: HomeAssistant, device_id: str) -> list[er.RegistryEntry]:
     """User-facing, enabled entities of a device and the devices under it.
 
@@ -268,7 +277,7 @@ def device_entities(hass: HomeAssistant, device_id: str) -> list[er.RegistryEntr
     devices = dr.async_get(hass)
     device_ids = [device_id] + [
         device.id
-        for device in devices.devices.values()
+        for device in all_devices(devices)
         if device.via_device_id == device_id
     ]
     return [

@@ -435,3 +435,14 @@ async def test_device_linked_to_controller(hass: HomeAssistant) -> None:
         assert ours.connections == {mac}
     else:
         assert ours.connections == set()
+
+
+async def test_controller_device_finds_its_zones(hass: HomeAssistant) -> None:
+    """Picking a controller's device finds the entities on the zones under it."""
+    from custom_components.homekit_extended.accessories.base import device_entities
+
+    controller_id = _rain_bird(hass)
+    found = {e.entity_id for e in device_entities(hass, controller_id)}
+    assert {"valve.zone_1_valve", "valve.zone_2_valve"} <= found
+    assert "sensor.zone_1_time_remaining" in found
+    assert "number.zone_1_valve_runtime" not in found  # settings are left out

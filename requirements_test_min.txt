@@ -1,14 +1,8 @@
-# The oldest Home Assistant this integration supports (hacs.json: 2025.3.0).
-# pytest-homeassistant-custom-component 0.13.225 is Home Assistant 2025.3.4,
-# the newest harness release of 2025.3. It needs Python 3.13 (python-min in
+# The oldest Home Assistant this integration supports (hacs.json: 2026.8.0).
+# pytest-homeassistant-custom-component 0.13.357 is Home Assistant 2026.8.3,
+# the newest harness release of 2026.8. It needs Python 3.14 (python-min in
 # .github/workflows/test.yml). Raise this together with hacs.json; see CLAUDE.md.
-pytest-homeassistant-custom-component==0.13.225
-# CI installs the requirements of the core integrations the tests use
-# (homekit camera ffmpeg homekit_controller) at the versions this Home Assistant expects.
+pytest-homeassistant-custom-component==0.13.357
 HAP-python>=5.0.0
 PyQRCode>=1.2.1
 base36>=0.1.1
-# Home Assistant 2025.3 pins aiohttp 3.11.13, which was later yanked; naming it installs it.
-aiohttp==3.11.13
-# aiodns 3.x, which this Home Assistant pins, needs pycares 4.
-pycares==4.11.0

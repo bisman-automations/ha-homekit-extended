@@ -22,7 +22,7 @@ Repo: `bisman-automations/ha-homekit-extended` (renamed from
 ## Testing
 
 Home Assistant 2026.3 and newer need Python 3.14; the oldest supported
-version (2025.3, from `hacs.json`) runs on 3.13 (`requirements_test_min.txt`).
+version (2026.8, from `hacs.json`) runs on 3.14 too (`requirements_test_min.txt`).
 
 Run the shared checks at the end of this file. The tests also need core
 HomeKit's requirements for the installed Home Assistant, which change between
@@ -88,8 +88,9 @@ is retried because aiohomekit and HAP-python occasionally fail at random.
 - **Options that only change values apply in place** (`IN_PLACE_KEYS` in
   `accessories/base.py`, via `apply_in_place`); anything else reloads the
   entry and rebuilds the accessory.
-- **Oldest supported Home Assistant is 2025.3.** Feature-detect newer APIs and
-  keep old behavior where they're missing (see `LINKED_DEVICES_SUPPORTED`).
+- **Oldest supported Home Assistant is 2026.8.** Feature-detect newer APIs and
+  keep old behavior where they're missing (see `LINKED_DEVICES_SUPPORTED`, 2026.9, and `all_devices`: `registry.devices`
+  is a mapping on 2026.8 and an iterable of entries from 2026.9).
 - **The core HomeKit hook uses private API**:
   `HomeKit._async_create_bridge_accessory`, `HomeKitEntryData.homekit`,
   `HomeKit.bridge`, `aid_storage`, `status`, plus `HomeIIDManager` and the

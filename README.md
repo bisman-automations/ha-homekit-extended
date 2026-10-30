@@ -5,7 +5,7 @@
 # HomeKit Extended
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.3%2B-blue.svg)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8%2B-blue.svg)](https://www.home-assistant.io/)
 [![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-homekit-extended)](https://github.com/bisman-automations/ha-homekit-extended/releases)
 [![Test](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/test.yml/badge.svg)](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/test.yml)
 [![Validate](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-homekit-extended/actions/workflows/validate.yml)
@@ -41,7 +41,7 @@ pairing.
 1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-homekit-extended` as an **Integration**.
 2. Download **HomeKit Extended** and restart Home Assistant.
 
-Requires **Home Assistant 2025.3 or newer**.
+Requires **Home Assistant 2026.8 or newer**.
 
 ### Manual
 
@@ -279,8 +279,8 @@ This integration replaces both standalone integrations.
 ## Icon
 
 The integration ships its own icon in `custom_components/homekit_extended/brand/`.
-Home Assistant 2026.3 and later shows it on the integration card; older versions
-show a placeholder. The source artwork is `assets/icon.svg`.
+Home Assistant shows it on the integration card. The source artwork is
+`assets/icon.svg`.
 
 ## Troubleshooting
 
@@ -319,7 +319,7 @@ pytest
 The tests also use these Home Assistant core integrations, so install their libraries too:
 `homekit camera ffmpeg homekit_controller` (CI reads them from each integration's manifest).
 
-To test against the oldest supported Home Assistant (2025.3), use Python 3.13 and
+To test against the oldest supported Home Assistant (2026.8), use Python 3.14 and
 `pip install -r requirements_test_min.txt` instead.
 
 CI runs the same checks on every push and pull request, on both Home Assistant

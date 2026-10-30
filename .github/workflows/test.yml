@@ -27,6 +27,5 @@ jobs:
   test:
     uses: bisman-automations/.github/.github/workflows/ha-test.yml@main
     with:
-      python-min: "3.13"
       core-requirements: "homekit camera ffmpeg homekit_controller"
       pytest-next: "python scripts/run_upcoming_tests.py -q --cov"
