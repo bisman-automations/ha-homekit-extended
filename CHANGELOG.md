@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Requires Home Assistant 2026.8 or newer.**
 - Finding the zones under a controller you pick no longer uses a device registry call Home Assistant is removing in 2027.9.
 - The integration icon has a dark-mode version.
-
 - The README follows the same layout as the other bisman-automations integrations: a button that opens it in HACS, a button that starts setup, and troubleshooting steps for debug logs and diagnostics.
 - Each release now includes `homekit_extended.zip` for installing without HACS.
 - The changelog no longer keeps an Unreleased section, and the agent notes follow the updated shared release rules.
