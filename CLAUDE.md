@@ -218,8 +218,8 @@ oldest supported Home Assistant. The standards check (also in CI) is
 - Never put personal details in the repo (README, CHANGELOG, code, tests,
   screenshots): no names, addresses, account or device identifiers, or real
   entity IDs. Use placeholders such as `light.living_room`.
-- `README.md` is user documentation with the standard header (badges,
-  Marketplace, HACS and "add integration" My buttons) and sections
-  Installation, Setup, ..., Troubleshooting, Development, License. Use plain
-  language and show names, not entity IDs, wherever the UI does.
+- `README.md` is user documentation with the standard header (badges, HACS
+  and "add integration" My buttons) and sections Installation, Setup, ...,
+  Troubleshooting, Development, License. Use plain language and show names,
+  not entity IDs, wherever the UI does.
 <!-- END bisman-automations shared rules -->
