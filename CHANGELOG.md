@@ -5,9 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.5.4] - 2026-10-26
+## [2.6.0] - 2026-10-30
 
 ### Changed
+
+- **Requires Home Assistant 2026.8 or newer.**
+- Finding the zones under a controller you pick no longer uses a device registry call Home Assistant is removing in 2027.9.
+- The integration icon has a dark-mode version.
 
 - The README follows the same layout as the other bisman-automations integrations: a button that opens it in HACS, a button that starts setup, and troubleshooting steps for debug logs and diagnostics.
 - Each release now includes `homekit_extended.zip` for installing without HACS.
@@ -361,7 +365,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
-[2.5.4]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.3...v2.5.4
+[2.6.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.3...v2.6.0
 [2.5.3]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.2...v2.5.3
 [2.5.2]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.1...v2.5.2
 [2.5.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.0...v2.5.1
