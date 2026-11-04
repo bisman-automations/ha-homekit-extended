@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-04
+
+### Removed
+
+- **Adding an accessory to a HomeKit Bridge.** HomeKit Extended used to publish an accessory inside one of Home Assistant's HomeKit Bridges by calling that integration's private code and writing its accessory IDs. That mode is gone. Every accessory is published on its own port, with its own pairing code, which is how standalone accessories already worked. There is no automatic move from a bridge to a standalone accessory. An entry that was added to a HomeKit Bridge fails to set up and raises a repair that explains how to delete it and add it again. Deleting the entry does not change the HomeKit Bridge. A leftover accessory in that bridge is cleared by reloading the HomeKit Bridge entry, or by resetting the HomeKit Bridge integration. Apple Home needs the new accessory paired, and rooms, scenes and automations that used the old copy need setting up again.
+
+### Changed
+
+- HomeKit Extended no longer uses the HomeKit Bridge integration, including its instance-ID and accessory-ID storage. Those IDs are stored by this integration in the same files as before (`.storage/homekit_extended.<entry>.iids` and `.aids`). Accessories already paired keep their IDs, so they do not need pairing again.
+- A single valve, including one zone of a controller, is its own accessory with its own port and pairing code. An irrigation entry can still publish every zone as its own accessory inside that entry's bridge, which is one pairing code.
+- Finding the zones, outlets or buttons under a controller you pick during setup uses Home Assistant's public device-registry helper for that controller's config entry.
+
 ## [2.6.1] - 2026-10-30
 
 ### Changed
@@ -370,6 +382,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[3.0.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.1...v3.0.0
 [2.6.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.0...v2.6.1
 [2.6.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.3...v2.6.0
 [2.5.3]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.2...v2.5.3

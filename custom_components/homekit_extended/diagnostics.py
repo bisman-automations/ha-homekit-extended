@@ -19,28 +19,21 @@ async def async_get_config_entry_diagnostics(
     """Return the entry config and the accessory as HomeKit sees it."""
     server = entry.runtime_data
     driver = server.driver
+    published = server.published
     return {
         "entry": {
             "title": entry.title,
             "data": async_redact_data(dict(entry.data), TO_REDACT),
             "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
-        **(
-            {"bridge": server.bridge_name, "attached": server.attached}
-            if getattr(server, "bridged", False)
-            else {"port": server.port}
-        ),
+        "port": server.port,
         "paired": server.paired,
-        "paired_controllers": (
-            server.paired_controllers
-            if getattr(server, "bridged", False)
-            else len(driver.state.paired_clients)
-            if driver
-            else 0
-        ),
+        "paired_controllers": len(driver.state.paired_clients) if driver else 0,
+        # The bridge HomeKit Extended publishes for separate zone accessories,
+        # or the accessory itself. This is our driver, not core HomeKit's.
         "accessory": (
-            server.published.to_HAP()
-            if getattr(server, "published", None) is not None
+            published.to_HAP()
+            if published is not None
             else server.accessory.to_HAP()
             if server.accessory
             else None

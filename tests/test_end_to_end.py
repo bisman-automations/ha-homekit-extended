@@ -1,14 +1,12 @@
-"""End to end over the network: real HAP servers and a real HAP client.
+"""End to end over the network: a real HAP server and a real HAP client.
 
-Core HomeKit Bridge and HomeKit Extended run their actual HAP servers on
-localhost, and aiohomekit (the library behind Home Assistant's HomeKit Device
-integration) pairs with them the way Apple Home would. This guards the hook
-into core HomeKit, which the other tests reach with the network mocked out.
+HomeKit Extended runs its HAP server on localhost, and aiohomekit (the library
+behind Home Assistant's HomeKit Device integration) pairs with it the way
+Apple Home would.
 """
 
 from __future__ import annotations
 
-import asyncio
 import socket
 from unittest.mock import MagicMock, patch
 
@@ -96,113 +94,16 @@ def _by_type(accessory, service_type):
 
 
 async def test_end_to_end(hass: HomeAssistant, mock_async_zeroconf) -> None:
-    """Pair, list, control and restart, as Apple Home would see it."""
+    """Pair, list and control a standalone accessory, as Apple Home would."""
     pytest_socket.enable_socket()
-    bridge_port, desk_port = _free_port(), _free_port()
+    desk_port = _free_port()
     for entity_id, name in (
         ("valve.front", "Front Lawn"),
         ("valve.back", "Back Lawn"),
-        ("light.porch", "Porch"),
         ("switch.a", "Lamp"),
         ("switch.b", "Fan"),
     ):
         hass.states.async_set(entity_id, "closed", {"friendly_name": name})
-
-    core = MockConfigEntry(
-        domain="homekit",
-        title="HASS Bridge",
-        data={"name": "HASS Bridge", "port": bridge_port},
-        options={
-            "mode": "bridge",
-            "filter": {
-                "include_domains": [],
-                "include_entities": ["light.porch"],
-                "exclude_domains": [],
-                "exclude_entities": [],
-            },
-        },
-    )
-    core.add_to_hass(hass)
-    with patch("homeassistant.components.homekit.async_show_setup_message"):
-        assert await hass.config_entries.async_setup(core.entry_id)
-        await hass.async_block_till_done()
-    homekit = core.runtime_data.homekit
-    for _ in range(50):
-        if homekit.status == 1:
-            break
-        await asyncio.sleep(0.05)
-    assert homekit.status == 1, homekit.status
-    core_driver = homekit.driver
-    config_before = core_driver.state.config_version
-
-    bridged = MockConfigEntry(
-        domain=DOMAIN,
-        title="Sprinklers",
-        data={
-            "accessory_type": "irrigation",
-            "bridge": core.entry_id,
-            "valves": ["valve.front", "valve.back"],
-        },
-    )
-    bridged.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(bridged.entry_id)
-    await hass.async_block_till_done()
-    ours = server(hass, bridged.entry_id)
-    assert ours.attached
-    assert core_driver.state.config_version > config_before
-
-    pairing = await _pair(
-        hass, core_driver, bridge_port, core_driver.state.pincode.decode()
-    )
-    accessories = await pairing.list_accessories_and_characteristics()
-    mine = next(a for a in accessories if a["aid"] == ours.accessory.aid)
-    assert len(_by_type(mine, IRRIGATION)) == 1
-    valves = _by_type(mine, VALVE)
-    assert [
-        next(c["value"] for c in v["characteristics"] if c["type"].upper() == NAME)
-        for v in valves
-    ] == ["Front Lawn", "Back Lawn"]
-
-    open_calls = async_mock_service(hass, "valve", "open_valve")
-    active = next(
-        c for c in valves[0]["characteristics"] if c["type"].upper() == ACTIVE
-    )
-    await pairing.put_characteristics([(mine["aid"], active["iid"], 1)])
-    await hass.async_block_till_done()
-    assert open_calls and open_calls[0].data["entity_id"] == "valve.front"
-
-    # Valves unavailable -> No Response for our accessory only.
-    hass.states.async_set("valve.front", "unavailable")
-    hass.states.async_set("valve.back", "unavailable")
-    read = await pairing.get_characteristics([(mine["aid"], active["iid"])])
-    assert read[(mine["aid"], active["iid"])].get("status") == -70402
-
-    # Core bridge restarts (reload): ours is there again with the same AID.
-    hass.states.async_set("valve.front", "closed")
-    await pairing.close()
-    # The pairing is saved in the background; make sure it's on disk before
-    # the bridge restarts and reads it back (CI can be slower than that).
-    await hass.async_add_executor_job(core_driver.persist)
-    with patch("homeassistant.components.homekit.async_show_setup_message"):
-        assert await hass.config_entries.async_reload(core.entry_id)
-        await hass.async_block_till_done()
-    homekit = core.runtime_data.homekit
-    for _ in range(50):
-        if homekit.status == 1:
-            break
-        await asyncio.sleep(0.05)
-    from aiohomekit.controller.ip.pairing import IpPairing
-
-    pairing = IpPairing(pairing.controller, pairing.pairing_data)
-    accessories = await pairing.list_accessories_and_characteristics()
-    again = next(a for a in accessories if a["aid"] == mine["aid"])
-    assert [s["iid"] for s in again["services"]] == [s["iid"] for s in mine["services"]]
-
-    # Leaving the bridge removes it for Apple Home.
-    await hass.config_entries.async_unload(bridged.entry_id)
-    accessories = await pairing.list_accessories_and_characteristics()
-    assert all(a["aid"] != mine["aid"] for a in accessories)
-    await pairing.close()
 
     # Standalone accessory: pairs on its own port, no protocol service.
     standalone = MockConfigEntry(
@@ -303,5 +204,4 @@ async def test_end_to_end(hass: HomeAssistant, mock_async_zeroconf) -> None:
     assert open_calls[-1].data["entity_id"] == "valve.back"
     await pairing.close()
     await hass.config_entries.async_unload(yard.entry_id)
-    await hass.config_entries.async_unload(core.entry_id)
     await hass.async_block_till_done()

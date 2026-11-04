@@ -13,23 +13,13 @@ from pyhap.accessory_driver import AccessoryDriver
 from zeroconf import IPVersion, NonUniqueNameException, ServiceInfo
 
 from homeassistant.components import network
-from homeassistant.components.homekit.accessories import HomeIIDManager
-from homeassistant.components.homekit.aidmanager import (
-    AID_MANAGER_STORAGE_VERSION,
-    AccessoryAidStorage,
-)
-from homeassistant.components.homekit.iidmanager import (
-    IID_MANAGER_STORAGE_VERSION,
-    AccessoryIIDStorage,
-    IIDStorage,
-)
 from homeassistant.components.zeroconf import async_get_async_instance
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import Store
 
 from .accessories import ACCESSORY_TYPES
 from .const import CONF_ACCESSORY_TYPE, CONF_PIN, CONF_PLAIN_NAME, CONF_PORT, DOMAIN
+from .id_storage import AidAllocation, IidAllocation, StableIIDManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,56 +30,6 @@ LISTEN_ADDRESS = "0.0.0.0"
 def persist_path(hass: HomeAssistant, entry: ConfigEntry) -> Path:
     """Return where HAP-python keeps pairing state for an entry."""
     return Path(hass.config.path(f".storage/{DOMAIN}.{entry.entry_id}.state"))
-
-
-def iid_storage_key(entry_id: str) -> str:
-    """Storage key holding an entry's instance IDs."""
-    return f"{DOMAIN}.{entry_id}.iids"
-
-
-class ExtendedIIDStorage(AccessoryIIDStorage):
-    """Core HomeKit's stable instance-ID storage, kept under our own key.
-
-    A fresh store hands out IDs in the order services are added, exactly like
-    HAP-python's default, so accessories paired before IDs were stored keep
-    the ones Apple Home already knows.
-    """
-
-    async def async_initialize(self) -> None:
-        """Load stored IDs from this integration's storage file."""
-        self.store = IIDStorage(
-            self.hass, IID_MANAGER_STORAGE_VERSION, iid_storage_key(self.entry_id)
-        )
-        if raw := await self.store.async_load():
-            self.allocations = raw.get("allocations", {})
-            for aid, allocations in self.allocations.items():
-                self.allocated_iids[aid] = sorted(allocations.values())
-
-
-def aid_storage_key(entry_id: str) -> str:
-    """Storage key holding the AIDs of an entry's bridged accessories."""
-    return f"{DOMAIN}.{entry_id}.aids"
-
-
-class ExtendedAidStorage(AccessoryAidStorage):
-    """Core HomeKit's stable accessory-ID storage, kept under our own key.
-
-    Used when an entry publishes a bridge of its own (an irrigation system
-    with each zone as a separate accessory), so each zone keeps its AID.
-    """
-
-    async def async_initialize(self) -> None:
-        """Load stored AIDs from this integration's storage file."""
-        self.store = Store(
-            self.hass, AID_MANAGER_STORAGE_VERSION, aid_storage_key(self._entry_id)
-        )
-        if raw := await self.store.async_load():
-            self.allocations = raw.get("allocations", {})
-            self.allocated_aids = set(self.allocations.values())
-
-    def aid_for(self, key: str) -> int:
-        """Stable AID for one of the entry's accessories."""
-        return self.get_or_allocate_aid(key, key)
 
 
 # pyhap names the service "<name> <last 6 of the accessory id>._hap._tcp.local."
@@ -186,8 +126,8 @@ class HomeKitAccessoryServer:
         self._on_pairing_changed = on_pairing_changed
         self.driver: ExtendedDriver | None = None
         self.accessory: Accessory | None = None
-        self.iid_storage: ExtendedIIDStorage | None = None
-        self.aid_storage: ExtendedAidStorage | None = None
+        self.iid_storage: IidAllocation | None = None
+        self.aid_storage: AidAllocation | None = None
         # What the driver publishes: the accessory itself, or a bridge of the
         # accessories it coordinates.
         self.published: Accessory | None = None
@@ -250,7 +190,7 @@ class HomeKitAccessoryServer:
         async_zeroconf = await async_get_async_instance(self.hass)
         advertised = await network.async_get_announce_addresses(self.hass)
         persist_file = persist_path(self.hass, self.entry)
-        self.iid_storage = ExtendedIIDStorage(self.hass, self.entry.entry_id)
+        self.iid_storage = IidAllocation(self.hass, self.entry.entry_id)
         await self.iid_storage.async_initialize()
 
         def _changed() -> None:
@@ -278,7 +218,7 @@ class HomeKitAccessoryServer:
         # Accessories subscribe to HA state events, so build them on the loop.
         extra: dict[str, Any] = {}
         if self.accessory_type.zone_accessories:
-            self.aid_storage = ExtendedAidStorage(self.hass, self.entry.entry_id)
+            self.aid_storage = AidAllocation(self.hass, self.entry.entry_id)
             await self.aid_storage.async_initialize()
             extra["aid_for"] = self.aid_storage.aid_for
         self.accessory = self.accessory_type.factory(
@@ -305,7 +245,7 @@ class HomeKitAccessoryServer:
         bridge = Bridge(
             self.driver,
             self.entry.title,
-            iid_manager=HomeIIDManager(self.iid_storage),
+            iid_manager=StableIIDManager(self.iid_storage),
         )
         info = accessory.info
         bridge.set_info_service(

@@ -12,8 +12,8 @@ Everything here maps onto native HomeKit behavior:
 - An irrigation system's zones can be laid out three ways: as zones of an
   Irrigation System (the default); as plain, numbered Valve services on one
   accessory, which Apple Home can show as separate tiles; or as one accessory
-  per zone, published as a HomeKit bridge (or as separate accessories in a
-  core HomeKit Bridge). In every layout this class coordinates the zones, so
+  per zone, published as a HomeKit bridge on this entry's own pairing. In
+  every layout this class coordinates the zones, so
   one zone at a time, the pump and controller countdowns work the same.
 - When a valve's device also has a run-time number and an end-time sensor
   (Rain Bird Extended, for example), the controller owns the run: run times
@@ -35,7 +35,6 @@ from pyhap.characteristic import Characteristic
 from pyhap.const import CATEGORY_FAUCET, CATEGORY_SPRINKLER
 import voluptuous as vol
 
-from homeassistant.components.homekit.accessories import HomeIIDManager
 from homeassistant.components.valve import DOMAIN as VALVE_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -63,6 +62,7 @@ from ..const import (
     VALVE_OPEN_STATES,
 )
 from ..helpers import friendly_name
+from ..id_storage import StableIIDManager
 from .base import (
     IGNORED_STATES,
     STANDALONE_AID,
@@ -365,7 +365,6 @@ class ZoneAccessory(Accessory):
     """
 
     category = CATEGORY_SPRINKLER
-    homekit_extended = True
 
     def __init__(
         self, group: ValveGroupAccessory, entity_id: str, aid: int, name: str
@@ -376,7 +375,7 @@ class ZoneAccessory(Accessory):
             driver=group.driver,
             display_name=name,
             aid=aid,
-            iid_manager=HomeIIDManager(storage) if storage else None,
+            iid_manager=StableIIDManager(storage) if storage else None,
         )
         self.hass = group.hass
         self.entity_id = entity_id

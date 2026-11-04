@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "homekit_extended"
-VERSION: Final = "2.6.1"
+VERSION: Final = "3.0.0"
 MANUFACTURER: Final = "HomeKit Extended"
 
 CONF_ACCESSORY_TYPE: Final = "accessory_type"
+# Stored by 2.x when an accessory was added to a core HomeKit Bridge.
+# Still read so those entries can be refused. New entries never set it.
 CONF_BRIDGE: Final = "bridge"
 CONF_CONNECTION: Final = "connection"
 CONF_INFO: Final = "accessory_info"
@@ -54,10 +56,6 @@ CONF_USE_CONTROLLER: Final = "use_controller_timers"
 CONF_VALVE_TYPE: Final = "valve_type"
 CONF_VALVES: Final = "valves"
 CONF_VOC_SENSOR: Final = "voc_sensor"
-
-# Choice in the "publish as" picker for an accessory with its own pairing.
-STANDALONE: Final = "standalone"
-HOMEKIT_DOMAIN: Final = "homekit"
 
 DEFAULT_DURATION: Final = 900
 # Core HomeKit Bridge starts at 21063; stay well clear of it.

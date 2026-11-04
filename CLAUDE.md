@@ -4,8 +4,9 @@ A Home Assistant custom integration (HACS) that publishes HomeKit accessories
 Home Assistant's own HomeKit Bridge can't build: irrigation systems, ceiling
 fans with lights, buttons, multi-sensors, air quality monitors, air purifiers,
 power strips and showers/faucets. Each config entry is one accessory,
-published either standalone (its own port and pairing code) or inside one of
-core HomeKit's bridges.
+published on its own port with its own pairing code. Bridge mode (injecting
+an accessory into a core HomeKit Bridge) was removed in 3.0.0 and is not
+migrated.
 
 Repo: `bisman-automations/ha-homekit-extended` (renamed from
 `homekit-extended`; if git warns that the repository moved, run
@@ -43,19 +44,21 @@ error inside `pytest_homeassistant_custom_component`), add the shim there. The
 Test workflow's **next** job runs this script against the newest pre-release
 harness.
 
-`tests/test_end_to_end.py` starts real HAP servers (core HomeKit's and ours)
-and pairs with them through aiohomekit. It is the only test that exercises the
-hook into core HomeKit with the network running, so keep it passing; pairing
-is retried because aiohomekit and HAP-python occasionally fail at random.
+`tests/test_end_to_end.py` starts this integration's real HAP server and pairs
+with it through aiohomekit. Keep it passing; pairing is retried because
+aiohomekit and HAP-python occasionally fail at random.
+`tests/test_bridge_removed.py` checks that a leftover bridge-mode entry fails
+setup and that removing it does not modify a core HomeKit Bridge.
 
 ## Layout
 
 - `custom_components/homekit_extended/`
-  - `__init__.py`: setup; picks standalone or bridged, raises repair issues.
-  - `driver.py`: standalone HAP server (`HomeKitAccessoryServer`), stored
-    instance and accessory IDs, advertising without the ID suffix.
-  - `bridge.py`: accessories inside a core HomeKit Bridge
-    (`BridgedAccessoryServer`), and the hook into core HomeKit.
+  - `__init__.py`: setup; publishes each entry on its own HAP server, and
+    refuses leftover bridge-mode entries with a repair (no migration, and no
+    writes to core HomeKit).
+  - `driver.py`: HAP server (`HomeKitAccessoryServer`), advertising without
+    the ID suffix.
+  - `id_storage.py`: this integration's instance and accessory ID files.
   - `config_flow.py`: add flow (menu per type, then entities) and options.
   - `accessories/`: one module per type; `base.py` holds shared code,
     `valves.py` the irrigation system and faucet, `zone_links.py` the
@@ -80,8 +83,12 @@ is retried because aiohomekit and HAP-python occasionally fail at random.
   standalone accessories deliberately leave out HAP's protocol information
   service (`add_protocol_version_service`). `test_first_run_keeps_pyhap_iids`
   guards accessories paired before 2.0.0.
-- **Accessory IDs are stored** (core bridge storage, or `ExtendedAidStorage`
-  for zone accessories), keyed by entry and entity. Don't change the keys.
+- **Accessory IDs are stored** in `AidAllocation` (`id_storage.py`) for zone
+  accessories published as their own bridge, keyed by entry and valve entity
+  id. Instance IDs are stored in `IidAllocation`. The files are
+  `homekit_extended.<entry_id>.aids` (storage version 1) and `.iids`
+  (version 2); `data.allocations` is the on-disk format from before 3.0.0
+  and is read as-is. Don't change the keys or the versions.
 - **Stored entry data is a contract.** Released options keep working; migrate
   old values when reading them (see `zone_layout()` for 2.1.0's
   `separate_zones`).
@@ -89,13 +96,19 @@ is retried because aiohomekit and HAP-python occasionally fail at random.
   `accessories/base.py`, via `apply_in_place`); anything else reloads the
   entry and rebuilds the accessory.
 - **Oldest supported Home Assistant is 2026.8.** Feature-detect newer APIs and
-  keep old behavior where they're missing (see `LINKED_DEVICES_SUPPORTED`, 2026.9, and `all_devices`: `registry.devices`
-  is a mapping on 2026.8 and an iterable of entries from 2026.9).
-- **The core HomeKit hook uses private API**:
-  `HomeKit._async_create_bridge_accessory`, `HomeKitEntryData.homekit`,
-  `HomeKit.bridge`, `aid_storage`, `status`, plus `HomeIIDManager` and the
-  IID/AID storage classes. When Home Assistant changes them, bridge mode must
-  fail with a repair issue, never break the user's bridge.
+  keep old behavior where they're missing (see `LINKED_DEVICES_SUPPORTED`,
+  2026.9). Devices under a picked controller are found with
+  `device_registry.async_entries_for_config_entry`, not by reading
+  `registry.devices`.
+- **Do not import `homeassistant.components.homekit`.** No monkeypatch, no
+  `runtime_data`, no core storage classes, no core driver. HAP-python is
+  declared in `manifest.json` `requirements`. A config entry with `bridge`
+  set fails setup (`ConfigEntryError`, repair `bridge_removed`) and is not
+  converted. Removing that entry deletes only this integration's files. A
+  single valve, including one zone under a controller, is its own accessory
+  with its own port and pairing code. `zone_layout: accessories` still
+  publishes each zone as an accessory inside this entry's own bridge (one
+  port, one pairing code).
 - **Rain Bird Extended** (`bisman-automations/ha-rainbird-extended`) is found
   by entity, not by name: a duration `number` and a timestamp `sensor` on each
   zone's device, and on the controller device the `run_all_zones`,

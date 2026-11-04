@@ -5,6 +5,11 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
+from pyhap.accessory import Accessory
+from pyhap.iid_manager import IIDManager
+import pytest
+
+from custom_components.homekit_extended.accessories import ACCESSORY_TYPES
 from custom_components.homekit_extended.driver import ExtendedDriver
 from homeassistant.components.fan import FanEntityFeature
 from homeassistant.const import ATTR_SUPPORTED_FEATURES
@@ -101,3 +106,87 @@ async def test_real_server_listens(hass: HomeAssistant, socket_enabled) -> None:
         # Unpaired clients are refused, which proves the HAP stack answered.
         assert status.startswith((b"HTTP/1.1 401", b"HTTP/1.1 470")), status
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def _iids(accessory: Accessory) -> dict[str, int]:
+    """Service and characteristic IIDs keyed by service name and type."""
+    found = {}
+    for service in accessory.services:
+        label = service.unique_id or service.display_name
+        found[label] = accessory.iid_manager.get_iid(service)
+        for char in service.characteristics:
+            found[f"{label}/{char.display_name}"] = accessory.iid_manager.get_iid(char)
+    return found
+
+
+LEGACY_TYPES = {
+    "irrigation": {"valves": ["valve.front", "valve.back"]},
+    "faucet": {"valves": ["valve.front", "valve.back"]},
+    "power_strip": {"outlets": ["switch.a", "switch.b"]},
+    "multi_sensor": {
+        "motion_sensor": "binary_sensor.motion",
+        "temperature_sensor": "sensor.temperature",
+        "battery_sensor": "sensor.battery",
+    },
+    "ceiling_fan": {"fan": "fan.ceiling", "light": "light.ceiling"},
+    "air_purifier": {"fan": "fan.purifier", "pm25_sensor": "sensor.pm25"},
+}
+
+
+@pytest.mark.parametrize(("accessory_type", "data"), LEGACY_TYPES.items())
+async def test_first_run_keeps_pyhap_iids(
+    hass: HomeAssistant, accessory_type: str, data: dict
+) -> None:
+    """Accessories paired before IIDs were stored keep the same IIDs.
+
+    Before 2.0.0 accessories were created without an AID (the driver set it
+    later) and with pyhap's own IID counter.
+    """
+    for entity_id, state in (
+        ("valve.front", "closed"),
+        ("valve.back", "closed"),
+        ("switch.a", "off"),
+        ("switch.b", "off"),
+        ("fan.ceiling", "off"),
+        ("light.ceiling", "off"),
+        ("binary_sensor.motion", "off"),
+        ("sensor.temperature", "20"),
+        ("sensor.battery", "80"),
+        ("fan.purifier", "on"),
+        ("sensor.pm25", "5"),
+    ):
+        hass.states.async_set(entity_id, state)
+    entry = await setup_accessory(hass, accessory_type, **data)
+    stored = server(hass, entry.entry_id).accessory
+    assert stored.get_service("HAPProtocolInformation") is None
+    # The pairing code never sits on the accessory object.
+    assert "pin" not in stored.config
+
+    with patch(
+        "custom_components.homekit_extended.accessories.base.StableIIDManager",
+        side_effect=lambda storage: IIDManager(),
+    ):
+        legacy = ACCESSORY_TYPES[accessory_type].factory(
+            hass, stored.driver, entry, None
+        )
+    assert _iids(stored) == _iids(legacy)
+    await legacy.async_stop()
+
+
+async def test_iids_survive_new_zone(hass: HomeAssistant) -> None:
+    """Adding a zone keeps the IIDs of every existing service."""
+    hass.states.async_set("valve.front", "closed")
+    hass.states.async_set("valve.back", "closed")
+    hass.states.async_set("valve.side", "closed")
+    entry = await setup_accessory(
+        hass, "irrigation", valves=["valve.front", "valve.back"]
+    )
+    before = _iids(server(hass, entry.entry_id).accessory)
+
+    hass.config_entries.async_update_entry(
+        entry, options={"valves": ["valve.side", "valve.front", "valve.back"]}
+    )
+    await hass.async_block_till_done()
+    after = _iids(server(hass, entry.entry_id).accessory)
+    assert {k: after[k] for k in before} == before
+    assert "valve.side" in after

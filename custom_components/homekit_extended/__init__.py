@@ -1,10 +1,14 @@
 """HomeKit Extended: accessory types Home Assistant's HomeKit Bridge lacks.
 
-Each config entry publishes one HomeKit accessory, either standalone on its
-own port with its own pairing, or inside one of core HomeKit's bridges.
+Each config entry publishes one HomeKit accessory on its own port, with its
+own pairing. Entries saved by the removed "add to a HomeKit Bridge" mode are
+not converted and are not loaded: setup raises, a repair explains how to
+recreate the accessory, and core HomeKit's storage is left untouched.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -15,23 +19,13 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
-from .bridge import (
-    BridgedAccessoryServer,
-    aid_key,
-    async_follow_bridges,
-    async_install_hook,
-    homekit_bridges,
-    running_homekit,
-)
 from .const import CONF_BRIDGE, CONF_PORT, DOMAIN, SIGNAL_PAIRING_CHANGED
-from .driver import (
-    AID_MANAGER_STORAGE_VERSION,
-    IID_MANAGER_STORAGE_VERSION,
-    HomeKitAccessoryServer,
-    IIDStorage,
+from .driver import HomeKitAccessoryServer, persist_path
+from .id_storage import (
+    AID_STORAGE_VERSION,
+    IID_STORAGE_VERSION,
     aid_storage_key,
     iid_storage_key,
-    persist_path,
 )
 from .pairing import (
     DATA_QR_TOKENS,
@@ -43,26 +37,53 @@ from .pairing import (
 PLATFORMS = [Platform.BINARY_SENSOR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-type HomeKitExtendedConfigEntry = ConfigEntry[
-    HomeKitAccessoryServer | BridgedAccessoryServer
-]
-DATA_HOOKED = f"{DOMAIN}_hooked"
-BRIDGE_ISSUES = ("bridge_missing", "bridge_unsupported", "bridge_full")
+type HomeKitExtendedConfigEntry = ConfigEntry[HomeKitAccessoryServer]
+
+# Repairs from 2.x bridge mode. Cleared so an upgrade doesn't leave them
+# behind next to the single "bridge mode was removed" repair.
+_LEGACY_BRIDGE_ISSUES = (
+    "bridge_missing",
+    "bridge_unsupported",
+    "bridge_full",
+    "duplicate_entities",
+)
+BRIDGE_REMOVED = "bridge_removed"
+
+
+def entry_config(entry: ConfigEntry) -> dict[str, Any]:
+    """Entry data with options applied over it, matching the rest of the integration."""
+    return {**entry.data, **entry.options}
+
+
+def is_bridge_mode(entry: ConfigEntry) -> bool:
+    """Return true when the entry was configured to join a core HomeKit Bridge.
+
+    Options win over data, which is how 2.x stored a move into or out of a
+    bridge. An entry that was already moved to standalone (``bridge`` set to
+    null in options) keeps working. Anything still pointing at a bridge is
+    left as it is: there is no automatic migration.
+    """
+    return bool(entry_config(entry).get(CONF_BRIDGE))
+
+
+def _issue_id(entry_id: str, kind: str) -> str:
+    return f"{kind}_{entry_id}"
 
 
 @callback
-def _async_clear_issues(
-    hass: HomeAssistant, entry_id: str, kinds: tuple[str, ...]
-) -> None:
-    for kind in kinds:
-        ir.async_delete_issue(hass, DOMAIN, f"{kind}_{entry_id}")
+def _async_clear_bridge_issues(hass: HomeAssistant, entry_id: str) -> None:
+    """Drop bridge-mode repairs for an entry that is gone or running standalone."""
+    for kind in (*_LEGACY_BRIDGE_ISSUES, BRIDGE_REMOVED):
+        ir.async_delete_issue(hass, DOMAIN, _issue_id(entry_id, kind))
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the pairing QR code view and hook into core HomeKit bridges."""
+    """Register the pairing QR code view.
+
+    Nothing here reaches into core HomeKit. Accessories are published by our
+    own HAP server when each entry is set up.
+    """
     async_register_view(hass)
-    hass.data[DATA_HOOKED] = async_install_hook(hass)
-    async_follow_bridges(hass)
     return True
 
 
@@ -70,10 +91,29 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: HomeKitExtendedConfigEntry
 ) -> bool:
     """Start publishing the entry's accessory."""
-    if {**entry.data, **entry.options}.get(CONF_BRIDGE):
-        return await _async_setup_bridged(hass, entry)
-    # Moved out of a bridge: its repairs no longer apply.
-    _async_clear_issues(hass, entry.entry_id, (*BRIDGE_ISSUES, "duplicate_entities"))
+    if is_bridge_mode(entry):
+        # Refuse, and do not read or write core HomeKit. The repair tells the
+        # user to delete this entry and add the accessory again standalone.
+        for kind in _LEGACY_BRIDGE_ISSUES:
+            ir.async_delete_issue(hass, DOMAIN, _issue_id(entry.entry_id, kind))
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            _issue_id(entry.entry_id, BRIDGE_REMOVED),
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=BRIDGE_REMOVED,
+            translation_placeholders={"name": entry.title},
+        )
+        raise ConfigEntryError(
+            f"{entry.title} was added to a HomeKit Bridge. That mode was "
+            "removed, and this entry was not converted. Delete it and add "
+            "the accessory again with its own pairing. See Repairs for the steps.",
+            translation_domain=DOMAIN,
+            translation_key=BRIDGE_REMOVED,
+            translation_placeholders={"name": entry.title},
+        )
+    _async_clear_bridge_issues(hass, entry.entry_id)
 
     @callback
     def _pairing_changed() -> None:
@@ -84,46 +124,11 @@ async def async_setup_entry(
     try:
         await server.async_start()
     except OSError as err:
-        port = {**entry.data, **entry.options}[CONF_PORT]
+        port = entry_config(entry)[CONF_PORT]
         raise ConfigEntryNotReady(f"Unable to listen on port {port}: {err}") from err
 
     entry.runtime_data = server
     async_show_pairing(hass, server)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-    return True
-
-
-async def _async_setup_bridged(
-    hass: HomeAssistant, entry: HomeKitExtendedConfigEntry
-) -> bool:
-    """Add the entry's accessory to a core HomeKit Bridge."""
-    bridge_id = {**entry.data, **entry.options}[CONF_BRIDGE]
-    for kind, failed in (
-        ("bridge_unsupported", not hass.data.get(DATA_HOOKED)),
-        ("bridge_missing", bridge_id not in homekit_bridges(hass)),
-    ):
-        issue_id = f"{kind}_{entry.entry_id}"
-        if not failed:
-            ir.async_delete_issue(hass, DOMAIN, issue_id)
-            continue
-        ir.async_create_issue(
-            hass,
-            DOMAIN,
-            issue_id,
-            is_fixable=False,
-            severity=ir.IssueSeverity.ERROR,
-            translation_key=kind,
-            translation_placeholders={"name": entry.title},
-        )
-        raise ConfigEntryError(
-            f"{entry.title} can't be added to its HomeKit Bridge; see Repairs"
-        )
-
-    server = BridgedAccessoryServer(hass, entry)
-    await server.async_start()
-    entry.runtime_data = server
-    async_dismiss_pairing(hass, entry.entry_id)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -140,22 +145,21 @@ async def async_unload_entry(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Forget the pairing and stored IDs so a re-added accessory starts fresh."""
+    """Forget our pairing and stored IDs so a re-added accessory starts fresh.
+
+    This deletes only HomeKit Extended's files (pairing state, instance IDs,
+    accessory IDs). It does not open core HomeKit's AID storage or bridge.
+    An accessory that 2.x injected into a HomeKit Bridge can remain listed
+    there until that HomeKit Bridge entry is reloaded or the HomeKit Bridge
+    integration is reset.
+    """
     await async_reset_pairing_state(hass, entry)
-    await IIDStorage(
-        hass, IID_MANAGER_STORAGE_VERSION, iid_storage_key(entry.entry_id)
-    ).async_remove()
-    _async_clear_issues(hass, entry.entry_id, (*BRIDGE_ISSUES, "duplicate_entities"))
-    # Free the accessory ID it had in a core bridge.
-    bridge_id = {**entry.data, **entry.options}.get(CONF_BRIDGE)
-    homekit = running_homekit(hass, bridge_id) if bridge_id else None
-    if homekit is not None and homekit.aid_storage is not None:
-        key = aid_key(entry.entry_id)
-        for stored in list(homekit.aid_storage.allocations):
-            if stored == key or stored.startswith(f"{key}."):
-                homekit.aid_storage.delete_aid(stored)
     await Store(
-        hass, AID_MANAGER_STORAGE_VERSION, aid_storage_key(entry.entry_id)
+        hass, IID_STORAGE_VERSION, iid_storage_key(entry.entry_id)
+    ).async_remove()
+    _async_clear_bridge_issues(hass, entry.entry_id)
+    await Store(
+        hass, AID_STORAGE_VERSION, aid_storage_key(entry.entry_id)
     ).async_remove()
     hass.data.get(DATA_QR_TOKENS, {}).pop(entry.entry_id, None)
 

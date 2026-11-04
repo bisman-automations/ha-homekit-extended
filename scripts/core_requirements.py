@@ -1,8 +1,11 @@
-"""Print the pip requirements of core integrations HomeKit Extended builds on.
+"""Print the pip requirements of core integrations the tests build on.
 
-The tests set up Home Assistant's own HomeKit Bridge, whose requirements
-change between releases, so CI installs them from whichever Home Assistant
-version is installed: pip install $(python scripts/core_requirements.py)
+The integration itself does not import Home Assistant's HomeKit Bridge.
+`tests/test_end_to_end.py` pairs through aiohomekit, and
+`tests/test_bridge_removed.py` starts a core HomeKit Bridge to prove this
+integration does not modify it. Those requirements change between releases,
+so CI installs them from whichever Home Assistant version is installed:
+pip install $(python scripts/core_requirements.py)
 """
 
 import json

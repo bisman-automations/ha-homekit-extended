@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 import logging
 import re
@@ -15,7 +15,6 @@ from pyhap.const import STANDALONE_AID
 from pyhap.service import Service
 import voluptuous as vol
 
-from homeassistant.components.homekit.accessories import HomeIIDManager
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import (
@@ -39,6 +38,7 @@ from ..const import (
     VERSION,
 )
 from ..helpers import to_float
+from ..id_storage import StableIIDManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -257,29 +257,27 @@ def entity_list(raw: Any) -> list[str]:
 # Device auto-detection
 
 
-def all_devices(registry: dr.DeviceRegistry) -> list[dr.DeviceEntry]:
-    """Every device. Home Assistant 2026.9 made ``registry.devices`` iterate
-    over entries and deprecated using it as a mapping; 2026.8 is a mapping."""
-    items = registry.devices
-    if isinstance(items, Mapping):
-        return list(items.values())
-    return list(items)
-
-
 def device_entities(hass: HomeAssistant, device_id: str) -> list[er.RegistryEntry]:
     """User-facing, enabled entities of a device and the devices under it.
 
     Controllers often put each zone, outlet or button on its own device linked
     to the controller (Rain Bird zones, for example), so picking the controller
-    should find them too.
+    should find them too. Those devices share the controller's config entry,
+    so this uses the public ``async_entries_for_config_entry`` helper instead
+    of walking ``registry.devices``.
     """
     registry = er.async_get(hass)
     devices = dr.async_get(hass)
-    device_ids = [device_id] + [
-        device.id
-        for device in all_devices(devices)
-        if device.via_device_id == device_id
-    ]
+    device_ids = [device_id]
+    device = devices.async_get(device_id)
+    if device is not None and device.config_entry_id:
+        device_ids.extend(
+            child.id
+            for child in dr.async_entries_for_config_entry(
+                devices, device.config_entry_id
+            )
+            if child.via_device_id == device_id
+        )
     return [
         entry
         for each_id in device_ids
@@ -377,15 +375,10 @@ def set_accessory_info(accessory: Accessory, info: dict[str, str]) -> None:
 class HomeAccessory(Accessory):
     """Accessory that mirrors Home Assistant entities.
 
-    Instance IDs come from Home Assistant's HomeKit IID storage, the same as
-    core HomeKit Bridge accessories, so a service keeps its ID when zones,
-    outlets or buttons are added or removed and Apple Home keeps its settings.
+    Instance IDs come from this integration's own IID storage, so a service
+    keeps its ID when zones, outlets or buttons are added or removed and
+    Apple Home keeps its settings.
     """
-
-    # Read by core HomeKit's diagnostics when the accessory is in its bridge.
-    entity_id: str | None = None
-    # Marks accessories of this integration among a core bridge's accessories.
-    homekit_extended = True
 
     def __init__(
         self,
@@ -409,13 +402,14 @@ class HomeAccessory(Accessory):
             display_name=entry.title,
             aid=aid,
             iid_manager=(
-                HomeIIDManager(iid_storage) if iid_storage and published else None
+                StableIIDManager(iid_storage) if iid_storage and published else None
             ),
         )
         self.hass = hass
         self.entry = entry
         self.data: dict[str, Any] = {**entry.data, **entry.options}
-        # Read by core HomeKit's diagnostics, which don't redact it.
+        # Pairing code stays off the accessory object. Diagnostics redact the
+        # entry separately; this copy is what zone accessories share.
         self.config = {k: v for k, v in self.data.items() if k != "pin"}
         # Other accessories showing this one's information (a bridge for it).
         self.info_mirrors: list[Accessory] = []
@@ -547,7 +541,7 @@ class HomeAccessory(Accessory):
         )
 
     async def stop(self) -> None:
-        """Called by the driver (or core's bridge) when it stops."""
+        """Called by the driver when it stops."""
         await self.async_stop()
 
     async def async_stop(self) -> None:

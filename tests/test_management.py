@@ -69,6 +69,9 @@ async def test_diagnostics_redacts_pin(hass: HomeAssistant) -> None:
     assert diagnostics["entry"]["data"]["pin"] == "**REDACTED**"
     assert diagnostics["paired"] is False
     assert diagnostics["accessory"]["aid"] == 1
+    assert diagnostics["port"] == 51828
+    assert "bridge" not in diagnostics
+    assert "pin" not in server(hass, entry.entry_id).accessory.config
 
 
 async def test_busy_port_retries_setup(hass: HomeAssistant, mock_hap_network) -> None:

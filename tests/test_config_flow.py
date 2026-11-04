@@ -85,6 +85,7 @@ async def test_irrigation_from_device(hass: HomeAssistant) -> None:
     result = await _start(hass, "irrigation")
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "irrigation"
+    assert "bridge" not in result["data_schema"].schema
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"device": device_id, "connection": CONNECTION}
@@ -190,6 +191,25 @@ async def test_entity_errors(hass: HomeAssistant) -> None:
             result["flow_id"], user_input
         )
         assert result["errors"] == error, accessory_type
+
+
+async def test_bridge_mode_entry_does_not_reserve_its_port(
+    hass: HomeAssistant, mock_hap_network
+) -> None:
+    """A leftover bridge-mode entry is not listening, so its port stays free."""
+    MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "accessory_type": "irrigation",
+            "port": 51828,
+            "pin": PIN,
+            "bridge": "old-homekit-bridge",
+        },
+    ).add_to_hass(hass)
+    result = await _start(hass, "air_purifier")
+    section = result["data_schema"].schema["connection"]
+    port = next(k for k in section.schema.schema if k == "port")
+    assert port.default() == 51828
 
 
 async def test_suggested_port_skips_used(hass: HomeAssistant, mock_hap_network) -> None:
