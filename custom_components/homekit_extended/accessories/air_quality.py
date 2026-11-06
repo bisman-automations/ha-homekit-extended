@@ -26,6 +26,7 @@ from ..const import (
     CONF_VOC_SENSOR,
 )
 from .base import (
+    IGNORED_STATES,
     STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
@@ -42,6 +43,7 @@ from .sensors import (
     add_temperature_service,
     homekit_air_quality,
     level_for,
+    text_air_quality,
 )
 
 # key: (pollutant for thresholds, HomeKit density characteristic or None)
@@ -163,9 +165,15 @@ class AirQualityAccessory(HomeAccessory):
 
     @callback
     def _update_aqi(self, state: State) -> None:
-        if (value := numeric_state(state)) is not None:
+        if state.state in IGNORED_STATES:
+            self._levels.pop("aqi", None)
+        elif (quality := text_air_quality(state.state)) is not None:
+            self._levels["aqi"] = quality
+        elif (value := numeric_state(state)) is not None:
             self._levels["aqi"] = homekit_air_quality(value)
-            self._update_quality()
+        else:
+            self._levels.pop("aqi", None)
+        self._update_quality()
 
     def _update_quality(self) -> None:
         if "aqi" in self._levels:

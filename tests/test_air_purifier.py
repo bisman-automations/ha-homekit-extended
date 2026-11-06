@@ -6,7 +6,9 @@ from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.homekit_extended.accessories.sensors import (
     homekit_air_quality,
+    pm10_air_quality,
     pm25_air_quality,
+    text_air_quality,
 )
 from homeassistant.components.fan import FanEntityFeature
 from homeassistant.const import ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
@@ -43,11 +45,13 @@ async def _setup(hass: HomeAssistant, **sensors):
 async def test_services_and_state(hass: HomeAssistant) -> None:
     """Optional sensors add linked services and mirror state."""
     hass.states.async_set("sensor.pm25", "20")
+    hass.states.async_set("sensor.pm10", "40")
     hass.states.async_set("sensor.temp", "68", {ATTR_UNIT_OF_MEASUREMENT: "°F"})
     hass.states.async_set("sensor.filter", "8")
     entry = await _setup(
         hass,
         pm25_sensor="sensor.pm25",
+        pm10_sensor="sensor.pm10",
         temperature_sensor="sensor.temp",
         filter_life_sensor="sensor.filter",
     )
@@ -58,7 +62,10 @@ async def test_services_and_state(hass: HomeAssistant) -> None:
     assert char(purifier, "CurrentAirPurifierState").value == 2
     assert char(purifier, "RotationSpeed").value == 40
     assert char(purifier, "RotationSpeed").properties["minStep"] == 20
-    assert char(services["AirQualitySensor"][0], "AirQuality").value == 2
+    air_svc = services["AirQualitySensor"][0]
+    assert char(air_svc, "AirQuality").value == 2
+    assert char(air_svc, "PM2.5Density").value == 20
+    assert char(air_svc, "PM10Density").value == 40
     assert char(services["TemperatureSensor"][0], "CurrentTemperature").value == 20
     assert char(services["FilterMaintenance"][0], "FilterChangeIndication").value == 1
 
@@ -66,6 +73,48 @@ async def test_services_and_state(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     assert char(purifier, "Active").value == 0
     assert char(services["Fanv2"][0], "Active").value == 0
+
+
+async def test_pm10_and_text_air_quality(hass: HomeAssistant) -> None:
+    """PM10 alone and text air quality values map correctly."""
+    hass.states.async_set("sensor.aqi", "Good")
+    entry = await _setup(hass, air_quality_sensor="sensor.aqi")
+    services = services_by_type(server(hass, entry.entry_id).accessory)
+    air_svc = services["AirQualitySensor"][0]
+    assert char(air_svc, "AirQuality").value == 2
+
+    # Text states update live
+    hass.states.async_set("sensor.aqi", "Excellent")
+    await hass.async_block_till_done()
+    assert char(air_svc, "AirQuality").value == 1
+
+    hass.states.async_set("sensor.aqi", "Poor")
+    await hass.async_block_till_done()
+    assert char(air_svc, "AirQuality").value == 5
+
+    # Standalone PM10 maps to HomeKit air quality
+    hass.states.async_set("sensor.pm10_only", "200")
+    entry_pm10 = await _setup(hass, pm10_sensor="sensor.pm10_only")
+    pm10_air = services_by_type(server(hass, entry_pm10.entry_id).accessory)[
+        "AirQualitySensor"
+    ][0]
+    assert char(pm10_air, "PM10Density").value == 200
+    assert char(pm10_air, "AirQuality").value == 3  # PM10 200 is Fair (3)
+
+    # Worst pollutant takes precedence when both PM2.5 and PM10 are present
+    hass.states.async_set("sensor.pm25_clean", "5")  # Excellent (1)
+    hass.states.async_set("sensor.pm10_polluted", "200")  # Fair (3)
+    entry_both = await _setup(
+        hass,
+        pm25_sensor="sensor.pm25_clean",
+        pm10_sensor="sensor.pm10_polluted",
+    )
+    both_air = services_by_type(server(hass, entry_both.entry_id).accessory)[
+        "AirQualitySensor"
+    ][0]
+    assert char(both_air, "PM2.5Density").value == 5
+    assert char(both_air, "PM10Density").value == 200
+    assert char(both_air, "AirQuality").value == 3  # Worst of 1 and 3 is 3
 
 
 async def test_homekit_commands(hass: HomeAssistant) -> None:
@@ -97,8 +146,15 @@ async def test_unload(hass: HomeAssistant, mock_hap_network) -> None:
 
 
 def test_air_quality_mapping() -> None:
-    """AQI and PM2.5 map onto HomeKit's 1-5 scale."""
+    """AQI, PM2.5, PM10 and text states map onto HomeKit's 1-5 scale."""
     assert [homekit_air_quality(v) for v in (1, 5, 30, 75, 120, 180, 300)] == [
         1, 5, 1, 2, 3, 4, 5,
     ]  # fmt: skip
+    assert [homekit_air_quality(v) for v in ("Excellent", "Good", "Fair", "Inferior", "Poor")] == [
+        1, 2, 3, 4, 5,
+    ]  # fmt: skip
     assert [pm25_air_quality(v) for v in (5, 20, 50, 100, 200)] == [1, 2, 3, 4, 5]
+    assert [pm10_air_quality(v) for v in (30, 100, 200, 300, 400)] == [1, 2, 3, 4, 5]
+    assert [text_air_quality(t) for t in ("excellent", "Good ", "FAIR", "moderate", "poor", "unknown", "invalid")] == [
+        1, 2, 3, 3, 5, 0, None,
+    ]  # fmt: skip

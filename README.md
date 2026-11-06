@@ -232,7 +232,7 @@ services:
 | --- | --- | --- |
 | Air Purifier | Fan | Power, speed (`fan.set_percentage`), swing (`fan.oscillate`), and auto mode through a preset named `auto` |
 | Fan | Fan | Linked so Apple Home shows fan controls on the purifier |
-| Air Quality | Air quality sensor or PM2.5 sensor | Accepts a HomeKit 1–5 value or an AQI value; if only PM2.5 is set, quality is estimated from it |
+| Air Quality | Air quality sensor, PM2.5 or PM10 sensor | Accepts HomeKit text/numeric 1–5 values or AQI values; if only particulate sensors are set, quality is estimated from the highest one |
 | Humidity | Humidity sensor | Optional |
 | Temperature | Temperature sensor | Optional; converted to °C |
 | Filter Maintenance | Filter life sensor (%) | Optional; asks for a replacement at 10% or less |
