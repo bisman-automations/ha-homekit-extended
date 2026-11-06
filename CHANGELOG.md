@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-11-06
+
+### Added
+
+- **PM10 sensor on Air Purifier.** An Air Purifier accessory can now expose a PM10 particulate matter sensor (`PM10Density` characteristic) alongside or instead of PM2.5. Overall air quality is rated by the highest (worst) pollutant level when only particulate sensors are set.
+
+### Fixed
+
+- **Air quality sensors showing as "Unknown" in Apple Home.** Air quality sensors reporting text states (such as `Excellent`, `Good`, `Fair`, `Inferior`, `Poor` from HomeKit or `homekit_controller`) are now mapped to HomeKit's standard integer values instead of failing numeric parsing and remaining in the `Unknown` state.
+
 ## [3.0.0] - 2026-11-04
 
 ### Removed
@@ -382,6 +392,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[3.0.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.1...v3.0.0
 [2.6.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.0...v2.6.1
 [2.6.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.5.3...v2.6.0
