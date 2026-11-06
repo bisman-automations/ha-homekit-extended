@@ -36,6 +36,7 @@ from ..const import (
     CONF_FAN,
     CONF_FILTER_LIFE_SENSOR,
     CONF_HUMIDITY_SENSOR,
+    CONF_PM10_SENSOR,
     CONF_PM25_SENSOR,
     CONF_TEMPERATURE_SENSOR,
     FILTER_CHANGE_THRESHOLD,
@@ -55,7 +56,9 @@ from .sensors import (
     add_humidity_service,
     add_temperature_service,
     homekit_air_quality,
+    pm10_air_quality,
     pm25_air_quality,
+    text_air_quality,
 )
 
 CHAR_ACTIVE = "Active"
@@ -63,6 +66,7 @@ CHAR_AIR_QUALITY = "AirQuality"
 CHAR_CURRENT_AIR_PURIFIER_STATE = "CurrentAirPurifierState"
 CHAR_FILTER_CHANGE_INDICATION = "FilterChangeIndication"
 CHAR_FILTER_LIFE_LEVEL = "FilterLifeLevel"
+CHAR_PM10_DENSITY = "PM10Density"
 CHAR_PM25_DENSITY = "PM2.5Density"
 CHAR_ROTATION_SPEED = "RotationSpeed"
 CHAR_SWING_MODE = "SwingMode"
@@ -91,6 +95,7 @@ SPEED_PROPERTIES = {"minValue": 0, "maxValue": 100, PROP_MIN_STEP: 1}
 SENSOR_KEYS = (
     CONF_AIR_QUALITY_SENSOR,
     CONF_PM25_SENSOR,
+    CONF_PM10_SENSOR,
     CONF_HUMIDITY_SENSOR,
     CONF_TEMPERATURE_SENSOR,
     CONF_FILTER_LIFE_SENSOR,
@@ -119,6 +124,7 @@ def _detect(hass: HomeAssistant, entries: list[er.RegistryEntry]) -> dict[str, A
             CONF_FAN: find_entity(entries, "fan"),
             CONF_AIR_QUALITY_SENSOR: find_entity(entries, "sensor", "aqi"),
             CONF_PM25_SENSOR: find_entity(entries, "sensor", "pm25"),
+            CONF_PM10_SENSOR: find_entity(entries, "sensor", "pm10"),
             CONF_HUMIDITY_SENSOR: find_entity(entries, "sensor", "humidity"),
             CONF_TEMPERATURE_SENSOR: find_entity(entries, "sensor", "temperature"),
             CONF_FILTER_LIFE_SENSOR: filter_life,
@@ -219,21 +225,33 @@ class AirPurifierAccessory(HomeAccessory):
         purifier.setter_callback = self._set_chars
         fan.setter_callback = self._set_chars
 
-        self._air_quality = self._pm25 = None
-        if self.air_quality_sensor or self.data.get(CONF_PM25_SENSOR):
+        self._air_quality = self._pm25 = self._pm10 = None
+        self._levels: dict[str, int] = {}
+        has_pm25 = bool(self.data.get(CONF_PM25_SENSOR))
+        has_pm10 = bool(self.data.get(CONF_PM10_SENSOR))
+        if self.air_quality_sensor or has_pm25 or has_pm10:
+            density_chars = []
+            if has_pm25 or (self.air_quality_sensor and not has_pm10):
+                density_chars.append(CHAR_PM25_DENSITY)
+            if has_pm10:
+                density_chars.append(CHAR_PM10_DENSITY)
             air = self.add_named_service(
                 SERV_AIR_QUALITY_SENSOR,
                 f"{self.name} Air Quality",
-                [CHAR_AIR_QUALITY, CHAR_PM25_DENSITY],
+                [CHAR_AIR_QUALITY, *density_chars],
             )
             purifier.add_linked_service(air)
             self._air_quality = air.configure_char(CHAR_AIR_QUALITY, value=0)
-            self._pm25 = air.configure_char(CHAR_PM25_DENSITY, value=0)
+            if CHAR_PM25_DENSITY in density_chars:
+                self._pm25 = air.configure_char(CHAR_PM25_DENSITY, value=0)
+            if CHAR_PM10_DENSITY in density_chars:
+                self._pm10 = air.configure_char(CHAR_PM10_DENSITY, value=0)
 
         handlers = {
             self.fan: self._update_fan,
             self.air_quality_sensor: self._update_air_quality,
             self.data.get(CONF_PM25_SENSOR): self._update_pm25,
+            self.data.get(CONF_PM10_SENSOR): self._update_pm10,
         }
         for key, add in (
             (CONF_HUMIDITY_SENSOR, add_humidity_service),
@@ -334,19 +352,45 @@ class AirPurifierAccessory(HomeAccessory):
 
     @callback
     def _update_air_quality(self, state: State) -> None:
-        if (
-            self._air_quality is not None
-            and (value := numeric_state(state)) is not None
-        ):
-            self._air_quality.set_value(homekit_air_quality(value))
+        if state.state in IGNORED_STATES:
+            self._levels.pop("aqi", None)
+        elif (quality := text_air_quality(state.state)) is not None:
+            self._levels["aqi"] = quality
+        elif (value := numeric_state(state)) is not None:
+            self._levels["aqi"] = homekit_air_quality(value)
+        else:
+            self._levels.pop("aqi", None)
+        self._update_overall_air_quality()
 
     @callback
     def _update_pm25(self, state: State) -> None:
-        if (value := numeric_state(state)) is None or self._pm25 is None:
+        value = numeric_state(state)
+        if value is None:
+            self._levels.pop("pm25", None)
+        else:
+            if self._pm25 is not None:
+                self._pm25.set_value(max(0, min(1000, value)))
+            self._levels["pm25"] = pm25_air_quality(value)
+        self._update_overall_air_quality()
+
+    @callback
+    def _update_pm10(self, state: State) -> None:
+        value = numeric_state(state)
+        if value is None:
+            self._levels.pop("pm10", None)
+        else:
+            if self._pm10 is not None:
+                self._pm10.set_value(max(0, min(1000, value)))
+            self._levels["pm10"] = pm10_air_quality(value)
+        self._update_overall_air_quality()
+
+    def _update_overall_air_quality(self) -> None:
+        if self._air_quality is None:
             return
-        self._pm25.set_value(max(0, min(1000, value)))
-        if self._air_quality is not None and not self.air_quality_sensor:
-            self._air_quality.set_value(pm25_air_quality(value))
+        if "aqi" in self._levels:
+            self._air_quality.set_value(self._levels["aqi"])
+        else:
+            self._air_quality.set_value(max(self._levels.values(), default=0))
 
     @callback
     def _update_filter_life(self, state: State) -> None:

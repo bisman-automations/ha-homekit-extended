@@ -10,6 +10,7 @@ from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, STATE_ON, UnitOfTemper
 from homeassistant.core import State
 from homeassistant.util.unit_conversion import TemperatureConverter
 
+from ..helpers import to_float
 from .base import IGNORED_STATES, HomeAccessory, numeric_state, set_clamped
 
 LOW_BATTERY_THRESHOLD = 20
@@ -127,6 +128,20 @@ THRESHOLDS: dict[str, tuple[float, float, float, float]] = {
     "aqi": (50, 100, 150, 200),  # US AQI
 }
 
+TEXT_QUALITY: dict[str, int] = {
+    "unknown": 0,
+    "excellent": 1,
+    "good": 2,
+    "fair": 3,
+    "moderate": 3,
+    "inferior": 4,
+    "poor": 5,
+    "unhealthy": 5,
+    "very unhealthy": 5,
+    "very_unhealthy": 5,
+    "hazardous": 5,
+}
+
 
 def level_for(pollutant: str, value: float) -> int:
     """Map a pollutant reading to HomeKit's 1-5 air quality."""
@@ -136,13 +151,30 @@ def level_for(pollutant: str, value: float) -> int:
     return 5
 
 
-def homekit_air_quality(value: float) -> int:
-    """Map a 1-5 HomeKit value or an AQI-style value to HomeKit air quality."""
+def homekit_air_quality(value: float | str) -> int:
+    """Map a 1-5 HomeKit value, an AQI-style value, or a text state to HomeKit air quality."""
+    if isinstance(value, str):
+        if (quality := text_air_quality(value)) is not None:
+            return quality
+        if (num := to_float(value)) is not None:
+            value = num
+        else:
+            return 0
     if 1 <= value <= 5 and value == int(value):
         return int(value)
     return level_for("aqi", value)
 
 
+def text_air_quality(state: str) -> int | None:
+    """Map a text air quality state to HomeKit's 1-5 scale, or None."""
+    return TEXT_QUALITY.get(state.lower().strip())
+
+
 def pm25_air_quality(value: float) -> int:
     """Map PM2.5 density (µg/m³) to HomeKit air quality."""
     return level_for("pm25", value)
+
+
+def pm10_air_quality(value: float) -> int:
+    """Map PM10 density (µg/m³) to HomeKit air quality."""
+    return level_for("pm10", value)
