@@ -439,6 +439,8 @@ class HomeKitExtendedOptionsFlow(OptionsFlow):
         if self._type.zone_accessories:
             # 2.1.0 stored a "separate zones" switch instead of a layout.
             current[CONF_ZONE_LAYOUT] = zone_layout(current)
+        for key, value in self._type.stored_defaults.items():
+            current.setdefault(key, value)
         for key in self._type.entity_keys:
             value = current.get(key)
             if isinstance(value, list):

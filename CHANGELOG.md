@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-11-06
+
+### Added
+
+- **Separate fan control for air purifiers.** The extra Fan on an air purifier is now a setting, off for new purifiers. With it, Siri counted the purifier as a fan, so "turn off the fan" in a room with a separate fan turned the purifier off too ([#2](https://github.com/bisman-automations/ha-homekit-extended/issues/2)). Purifiers set up before 3.1.0 keep their Fan until you switch it off in **Configure → Entities**; switching it off removes only the Fan. The purifier keeps its room, name and automations in Apple Home; a scene or automation that used the Fan itself needs the purifier instead.
+
 ## [3.0.1] - 2026-11-06
 
 ### Added
@@ -392,6 +398,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[3.1.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.1...v3.0.0
 [2.6.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v2.6.0...v2.6.1

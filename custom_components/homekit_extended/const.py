@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "homekit_extended"
-VERSION: Final = "3.0.1"
+VERSION: Final = "3.1.0"
 MANUFACTURER: Final = "HomeKit Extended"
 
 CONF_ACCESSORY_TYPE: Final = "accessory_type"
@@ -45,6 +45,10 @@ CONF_ONE_AT_A_TIME: Final = "one_at_a_time"
 CONF_OUTLETS: Final = "outlets"
 CONF_OZONE_SENSOR: Final = "ozone_sensor"
 CONF_PM10_SENSOR: Final = "pm10_sensor"
+# Air purifier: also publish a linked Fan service. Siri counts it as a fan in
+# the room ("turn off the fan" turns the purifier off too), so new purifiers
+# leave it out; ones set up before 3.1.0 keep it until it's switched off.
+CONF_FAN_SERVICE: Final = "fan_service"
 CONF_PM25_SENSOR: Final = "pm25_sensor"
 CONF_RUN_TIMES: Final = "run_times"
 CONF_SEPARATE_ZONES: Final = "separate_zones"

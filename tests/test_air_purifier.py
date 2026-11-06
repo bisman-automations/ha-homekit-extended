@@ -158,3 +158,45 @@ def test_air_quality_mapping() -> None:
     assert [text_air_quality(t) for t in ("excellent", "Good ", "FAIR", "moderate", "poor", "unknown", "invalid")] == [
         1, 2, 3, 3, 5, 0, None,
     ]  # fmt: skip
+
+
+async def test_fan_service_setting(hass: HomeAssistant) -> None:
+    """Purifiers set up before the setting keep their Fan; new ones leave it out.
+
+    Siri counts a Fan service as a fan in the room, so "turn off the fan"
+    turned the purifier off too.
+    """
+    old = await _setup(hass)
+    assert "Fanv2" in services_by_type(server(hass, old.entry_id).accessory)
+
+    hass.states.async_set(FAN, "on", {ATTR_SUPPORTED_FEATURES: FEATURES})
+    new = await setup_accessory(
+        hass, "air_purifier", "New", port=51829, fan=FAN, fan_service=False
+    )
+    accessory = server(hass, new.entry_id).accessory
+    services = services_by_type(accessory)
+    assert "Fanv2" not in services
+    # Still fully controllable on the purifier itself.
+    purifier = services["AirPurifier"][0]
+    assert char(purifier, "Active").value == 1
+    turn_off = async_mock_service(hass, "fan", "turn_off")
+    accessory._set_chars({"Active": 0})
+    await hass.async_block_till_done()
+    assert len(turn_off) == 1
+    hass.states.async_set(FAN, "off", {ATTR_SUPPORTED_FEATURES: FEATURES})
+    await hass.async_block_till_done()
+    assert char(purifier, "Active").value == 0
+
+    # The options form shows an older purifier's Fan as on, so saving other
+    # changes doesn't remove it; switching it off re-publishes without it.
+    result = await hass.config_entries.options.async_init(old.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "entities"}
+    )
+    field = next(k for k in result["data_schema"].schema if k == "fan_service")
+    assert field.description["suggested_value"] is True
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"fan": FAN, "fan_service": False}
+    )
+    await hass.async_block_till_done()
+    assert "Fanv2" not in services_by_type(server(hass, old.entry_id).accessory)

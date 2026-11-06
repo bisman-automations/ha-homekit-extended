@@ -29,11 +29,12 @@ from homeassistant.const import (
     STATE_ON,
 )
 from homeassistant.core import HomeAssistant, State, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, selector
 
 from ..const import (
     CONF_AIR_QUALITY_SENSOR,
     CONF_FAN,
+    CONF_FAN_SERVICE,
     CONF_FILTER_LIFE_SENSOR,
     CONF_HUMIDITY_SENSOR,
     CONF_PM10_SENSOR,
@@ -106,7 +107,14 @@ def _schema() -> dict[vol.Marker, Any]:
     return {
         vol.Required(CONF_FAN): entity_field("fan"),
         **{vol.Optional(key): entity_field("sensor") for key in SENSOR_KEYS},
+        vol.Required(CONF_FAN_SERVICE, default=False): selector.BooleanSelector(),
     }
+
+
+def fan_service(data: dict[str, Any]) -> bool:
+    """Whether to publish the linked Fan service. Entries from before the
+    setting existed always had it, so a missing value means yes."""
+    return bool(data.get(CONF_FAN_SERVICE, True))
 
 
 def _detect(hass: HomeAssistant, entries: list[er.RegistryEntry]) -> dict[str, Any]:
@@ -190,13 +198,18 @@ class AirPurifierAccessory(HomeAccessory):
             ],
         )
         purifier.is_primary_service = True
-        fan = self.add_named_service(
-            SERV_FANV2, f"{self.name} Fan", [CHAR_ACTIVE, *extra]
-        )
-        purifier.add_linked_service(fan)
+        controls = [purifier]
+        if fan_service(self.data):
+            # Fan controls on the purifier in Apple Home. Siri treats it as a
+            # fan in the room, so it's a setting (off for new purifiers).
+            fan = self.add_named_service(
+                SERV_FANV2, f"{self.name} Fan", [CHAR_ACTIVE, *extra]
+            )
+            purifier.add_linked_service(fan)
+            controls.append(fan)
 
         self._active = [
-            s.configure_char(CHAR_ACTIVE, value=HK_INACTIVE) for s in (purifier, fan)
+            s.configure_char(CHAR_ACTIVE, value=HK_INACTIVE) for s in controls
         ]
         self._current_state = purifier.configure_char(
             CHAR_CURRENT_AIR_PURIFIER_STATE, value=HK_CURRENT_INACTIVE
@@ -209,7 +222,7 @@ class AirPurifierAccessory(HomeAccessory):
                 s.configure_char(
                     CHAR_ROTATION_SPEED, value=initial_speed, properties=speed_props
                 )
-                for s in (purifier, fan)
+                for s in controls
             ]
             if supports_speed
             else []
@@ -217,13 +230,13 @@ class AirPurifierAccessory(HomeAccessory):
         self._swing = (
             [
                 s.configure_char(CHAR_SWING_MODE, value=HK_SWING_DISABLED)
-                for s in (purifier, fan)
+                for s in controls
             ]
             if supports_swing
             else []
         )
-        purifier.setter_callback = self._set_chars
-        fan.setter_callback = self._set_chars
+        for service in controls:
+            service.setter_callback = self._set_chars
 
         self._air_quality = self._pm25 = self._pm10 = None
         self._levels: dict[str, int] = {}
@@ -415,4 +428,5 @@ AIR_PURIFIER = AccessoryType(
     normalize=_normalize,
     factory=AirPurifierAccessory,
     entity_keys=(CONF_FAN, *SENSOR_KEYS),
+    stored_defaults={CONF_FAN_SERVICE: True},
 )

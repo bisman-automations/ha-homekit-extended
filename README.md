@@ -231,11 +231,18 @@ services:
 | HomeKit service | Source | Notes |
 | --- | --- | --- |
 | Air Purifier | Fan | Power, speed (`fan.set_percentage`), swing (`fan.oscillate`), and auto mode through a preset named `auto` |
-| Fan | Fan | Linked so Apple Home shows fan controls on the purifier |
+| Fan | Fan | Only with **Separate fan control** on: fan controls on the purifier in Apple Home |
 | Air Quality | Air quality sensor, PM2.5 or PM10 sensor | Accepts HomeKit text/numeric 1–5 values or AQI values; if only particulate sensors are set, quality is estimated from the highest one |
 | Humidity | Humidity sensor | Optional |
 | Temperature | Temperature sensor | Optional; converted to °C |
 | Filter Maintenance | Filter life sensor (%) | Optional; asks for a replacement at 10% or less |
+
+**Separate fan control** is off for new purifiers. With it on, the purifier also
+has a Fan in Apple Home, and Siri counts it as a fan: "turn off the fan" in the
+purifier's room turns the purifier off too. Purifiers set up before 3.1.0 keep
+their Fan until you switch it off in **Configure → Entities**. Switching it
+off removes only the Fan: the purifier keeps its room, name and automations,
+but a scene or automation that used the Fan itself needs the purifier instead.
 
 ## Power Strip
 
