@@ -20,6 +20,7 @@ from homeassistant.components.fan import (
     SERVICE_SET_PRESET_MODE,
     FanEntityFeature,
 )
+from homeassistant.components.lock import LockState
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_SUPPORTED_FEATURES,
@@ -27,7 +28,6 @@ from homeassistant.const import (
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     SERVICE_UNLOCK,
-    STATE_LOCKED,
     STATE_OFF,
     STATE_ON,
 )
@@ -479,7 +479,7 @@ class AirPurifierAccessory(HomeAccessory):
     def _update_child_lock(self, state: State) -> None:
         if state.state in IGNORED_STATES or not self._child_lock:
             return
-        is_locked = state.state in (STATE_ON, STATE_LOCKED, "locking")
+        is_locked = state.state in (STATE_ON, LockState.LOCKED, LockState.LOCKING)
         value = (
             HK_PHYSICAL_CONTROLS_LOCKED if is_locked else HK_PHYSICAL_CONTROLS_UNLOCKED
         )
