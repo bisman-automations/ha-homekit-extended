@@ -23,8 +23,11 @@ from homeassistant.components.fan import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_SUPPORTED_FEATURES,
+    SERVICE_LOCK,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    SERVICE_UNLOCK,
+    STATE_LOCKED,
     STATE_OFF,
     STATE_ON,
 )
@@ -33,6 +36,7 @@ from homeassistant.helpers import entity_registry as er, selector
 
 from ..const import (
     CONF_AIR_QUALITY_SENSOR,
+    CONF_CHILD_LOCK,
     CONF_FAN,
     CONF_FAN_SERVICE,
     CONF_FILTER_LIFE_SENSOR,
@@ -69,6 +73,7 @@ CHAR_FILTER_CHANGE_INDICATION = "FilterChangeIndication"
 CHAR_FILTER_LIFE_LEVEL = "FilterLifeLevel"
 CHAR_PM10_DENSITY = "PM10Density"
 CHAR_PM25_DENSITY = "PM2.5Density"
+CHAR_LOCK_PHYSICAL_CONTROLS = "LockPhysicalControls"
 CHAR_ROTATION_SPEED = "RotationSpeed"
 CHAR_SWING_MODE = "SwingMode"
 CHAR_TARGET_AIR_PURIFIER_STATE = "TargetAirPurifierState"
@@ -89,6 +94,8 @@ HK_SWING_DISABLED = 0
 HK_SWING_ENABLED = 1
 HK_FILTER_OK = 0
 HK_FILTER_CHANGE_NEEDED = 1
+HK_PHYSICAL_CONTROLS_UNLOCKED = 0
+HK_PHYSICAL_CONTROLS_LOCKED = 1
 
 PROP_MIN_STEP = "minStep"
 SPEED_PROPERTIES = {"minValue": 0, "maxValue": 100, PROP_MIN_STEP: 1}
@@ -108,6 +115,7 @@ def _schema() -> dict[vol.Marker, Any]:
         vol.Required(CONF_FAN): entity_field("fan"),
         **{vol.Optional(key): entity_field("sensor") for key in SENSOR_KEYS},
         vol.Required(CONF_FAN_SERVICE, default=False): selector.BooleanSelector(),
+        vol.Optional(CONF_CHILD_LOCK): entity_field(["switch", "lock"]),
     }
 
 
@@ -127,6 +135,30 @@ def _detect(hass: HomeAssistant, entries: list[er.RegistryEntry]) -> dict[str, A
         ),
         None,
     )
+    child_lock = next(
+        (
+            entry.entity_id
+            for entry in entries
+            if entry.domain in ("switch", "lock")
+            and any(
+                term
+                in (
+                    entry.entity_id
+                    + (entry.original_name or "")
+                    + (entry.translation_key or "")
+                ).lower()
+                for term in (
+                    "child_lock",
+                    "childlock",
+                    "lock_physical",
+                    "physical_controls",
+                    "physical_control",
+                    "control_lock",
+                )
+            )
+        ),
+        None,
+    )
     return drop_empty(
         {
             CONF_FAN: find_entity(entries, "fan"),
@@ -136,12 +168,13 @@ def _detect(hass: HomeAssistant, entries: list[er.RegistryEntry]) -> dict[str, A
             CONF_HUMIDITY_SENSOR: find_entity(entries, "sensor", "humidity"),
             CONF_TEMPERATURE_SENSOR: find_entity(entries, "sensor", "temperature"),
             CONF_FILTER_LIFE_SENSOR: filter_life,
+            CONF_CHILD_LOCK: child_lock,
         }
     )
 
 
 def _normalize(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
-    optional_entities(data, SENSOR_KEYS)
+    optional_entities(data, (*SENSOR_KEYS, CONF_CHILD_LOCK))
     return data, {}
 
 
@@ -165,6 +198,7 @@ class AirPurifierAccessory(HomeAccessory):
         super().__init__(hass, driver, entry, AIR_PURIFIER.model, aid)
         self.fan: str = self.data[CONF_FAN]
         self.air_quality_sensor: str | None = self.data.get(CONF_AIR_QUALITY_SENSOR)
+        self.child_lock: str | None = self.data.get(CONF_CHILD_LOCK)
         fan_state = hass.states.get(self.fan)
         attrs = dict(fan_state.attributes) if fan_state is not None else {}
 
@@ -183,9 +217,11 @@ class AirPurifierAccessory(HomeAccessory):
             PROP_MIN_STEP: attrs.get(ATTR_PERCENTAGE_STEP) or 1,
         }
         initial_speed = max(1, int(attrs.get(ATTR_PERCENTAGE) or 100))
-        extra = [CHAR_ROTATION_SPEED] * supports_speed + [
-            CHAR_SWING_MODE
-        ] * supports_swing
+        extra = (
+            [CHAR_ROTATION_SPEED] * supports_speed
+            + [CHAR_SWING_MODE] * supports_swing
+            + ([CHAR_LOCK_PHYSICAL_CONTROLS] if self.child_lock else [])
+        )
 
         purifier = self.add_named_service(
             SERV_AIR_PURIFIER,
@@ -235,6 +271,16 @@ class AirPurifierAccessory(HomeAccessory):
             if supports_swing
             else []
         )
+        self._child_lock = (
+            [
+                s.configure_char(
+                    CHAR_LOCK_PHYSICAL_CONTROLS, value=HK_PHYSICAL_CONTROLS_UNLOCKED
+                )
+                for s in (purifier, fan)
+            ]
+            if self.child_lock
+            else []
+        )
         for service in controls:
             service.setter_callback = self._set_chars
 
@@ -265,6 +311,7 @@ class AirPurifierAccessory(HomeAccessory):
             self.air_quality_sensor: self._update_air_quality,
             self.data.get(CONF_PM25_SENSOR): self._update_pm25,
             self.data.get(CONF_PM10_SENSOR): self._update_pm10,
+            self.child_lock: self._update_child_lock,
         }
         for key, add in (
             (CONF_HUMIDITY_SENSOR, add_humidity_service),
@@ -324,6 +371,18 @@ class AirPurifierAccessory(HomeAccessory):
                 self._fan_service(
                     SERVICE_SET_PERCENTAGE, **{ATTR_PERCENTAGE: percentage}
                 )
+        if CHAR_LOCK_PHYSICAL_CONTROLS in values and self.child_lock:
+            locked = (
+                values[CHAR_LOCK_PHYSICAL_CONTROLS] == HK_PHYSICAL_CONTROLS_LOCKED
+            )
+            for char in self._child_lock:
+                char.set_value(values[CHAR_LOCK_PHYSICAL_CONTROLS])
+            domain = self.child_lock.split(".", 1)[0]
+            if domain == "lock":
+                service = SERVICE_LOCK if locked else SERVICE_UNLOCK
+            else:
+                service = SERVICE_TURN_ON if locked else SERVICE_TURN_OFF
+            self.call_service(domain, service, self.child_lock)
 
     def _fan_service(self, service: str, **data: Any) -> None:
         self.call_service(FAN_DOMAIN, service, self.fan, **data)
@@ -417,6 +476,19 @@ class AirPurifierAccessory(HomeAccessory):
             else HK_FILTER_OK
         )
 
+    @callback
+    def _update_child_lock(self, state: State) -> None:
+        if state.state in IGNORED_STATES or not self._child_lock:
+            return
+        is_locked = state.state in (STATE_ON, STATE_LOCKED, "locking")
+        value = (
+            HK_PHYSICAL_CONTROLS_LOCKED
+            if is_locked
+            else HK_PHYSICAL_CONTROLS_UNLOCKED
+        )
+        for char in self._child_lock:
+            char.set_value(value)
+
 
 AIR_PURIFIER = AccessoryType(
     key="air_purifier",
@@ -427,6 +499,6 @@ AIR_PURIFIER = AccessoryType(
     detect=_detect,
     normalize=_normalize,
     factory=AirPurifierAccessory,
-    entity_keys=(CONF_FAN, *SENSOR_KEYS),
     stored_defaults={CONF_FAN_SERVICE: True},
+    entity_keys=(CONF_FAN, *SENSOR_KEYS, CONF_CHILD_LOCK),
 )

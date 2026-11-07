@@ -23,7 +23,7 @@ real-world device into the single HomeKit accessory Apple Home expects.
 | **Buttons / Remote** | `event` entities | Doesn't support the `event` domain at all |
 | **Multi-Sensor** | Motion, occupancy, contact, leak, temperature, humidity, light level and battery sensors | A separate accessory per sensor |
 | **Air Quality Monitor** | AQI, PM2.5, PM10, VOC, NO₂, O₃, SO₂ and CO₂ sensors | A separate accessory per pollutant |
-| **Air Purifier** | A fan plus optional sensors | Has an air purifier type, but without a linked Fan service, swing mode or AQI input |
+| **Air Purifier** | A fan plus optional sensors and child lock | Has an air purifier type, but without a linked Fan service, swing mode, AQI input or child lock |
 | **Power Strip** | Switches | A separate accessory per switch |
 | **Shower / Faucet** | Valves, one per outlet | A separate accessory per valve |
 
@@ -230,8 +230,8 @@ services:
 
 | HomeKit service | Source | Notes |
 | --- | --- | --- |
-| Air Purifier | Fan | Power, speed (`fan.set_percentage`), swing (`fan.oscillate`), and auto mode through a preset named `auto` |
-| Fan | Fan | Only with **Separate fan control** on: fan controls on the purifier in Apple Home |
+| Air Purifier | Fan, child lock switch or lock | Power, speed (`fan.set_percentage`), swing (`fan.oscillate`), and auto mode through a preset named `auto` |
+| Fan | Fan, child lock switch or lock | Only with **Separate fan control** on: fan controls and child lock on the purifier in Apple Home |
 | Air Quality | Air quality sensor, PM2.5 or PM10 sensor | Accepts HomeKit text/numeric 1–5 values or AQI values; if only particulate sensors are set, quality is estimated from the highest one |
 | Humidity | Humidity sensor | Optional |
 | Temperature | Temperature sensor | Optional; converted to °C |
