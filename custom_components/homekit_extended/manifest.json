@@ -6,6 +6,7 @@
     "event",
     "fan",
     "light",
+    "lock",
     "sensor",
     "switch",
     "valve"
