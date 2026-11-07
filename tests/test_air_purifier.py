@@ -62,7 +62,10 @@ async def test_services_and_state(hass: HomeAssistant) -> None:
     services = services_by_type(server(hass, entry.entry_id).accessory)
     assert "HumiditySensor" not in services
     purifier = services["AirPurifier"][0]
-    assert char(purifier, "LockPhysicalControls") is None
+    # No child lock picked: no Physical Controls, as before.
+    assert "LockPhysicalControls" not in {
+        c.display_name for c in purifier.characteristics
+    }
     assert char(purifier, "Active").value == 1
     assert char(purifier, "CurrentAirPurifierState").value == 2
     assert char(purifier, "RotationSpeed").value == 40
