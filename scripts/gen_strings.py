@@ -39,7 +39,7 @@ TYPES = {
     ),
     "air_purifier": (
         "Air purifier",
-        "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.",
+        "A fan plus optional air quality, humidity, temperature, filter sensors and child lock as one Air Purifier.",
     ),
     "power_strip": (
         "Power strip",
@@ -60,6 +60,7 @@ DATA = {
     "use_controller_timers": "Use the controller's run times and countdown",
     "zone_layout": "Zone layout",
     "fan": "Fan",
+    "child_lock": "Child lock",
     "light": "Light",
     "events": "Buttons",
     "motion_sensor": "Motion",
@@ -103,6 +104,7 @@ DESC = {
     "filter_life_sensor": "Remaining filter life in %. Apple Home asks for a replacement at 10% or less.",
     "battery_sensor": "Apple Home warns at 20% or less.",
     "outlets": "Switches or input booleans, in outlet order.",
+    "child_lock": "A switch or lock entity that locks the device's physical buttons.",
     "fan": "Speed, oscillation and direction are added when the fan supports them.",
     "light": "Brightness is added when the light supports it.",
 }

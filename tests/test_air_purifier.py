@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 from pytest_homeassistant_custom_component.common import async_mock_service
 
+from custom_components.homekit_extended.accessories.air_purifier import _detect
 from custom_components.homekit_extended.accessories.sensors import (
     homekit_air_quality,
     pm25_air_quality,
 )
+from custom_components.homekit_extended.const import CONF_CHILD_LOCK
 from homeassistant.components.fan import FanEntityFeature
 from homeassistant.const import ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import HomeAssistant
@@ -54,6 +58,7 @@ async def test_services_and_state(hass: HomeAssistant) -> None:
     services = services_by_type(server(hass, entry.entry_id).accessory)
     assert "HumiditySensor" not in services
     purifier = services["AirPurifier"][0]
+    assert char(purifier, "LockPhysicalControls") is None
     assert char(purifier, "Active").value == 1
     assert char(purifier, "CurrentAirPurifierState").value == 2
     assert char(purifier, "RotationSpeed").value == 40
@@ -102,3 +107,72 @@ def test_air_quality_mapping() -> None:
         1, 5, 1, 2, 3, 4, 5,
     ]  # fmt: skip
     assert [pm25_air_quality(v) for v in (5, 20, 50, 100, 200)] == [1, 2, 3, 4, 5]
+
+
+async def test_child_lock_switch(hass: HomeAssistant) -> None:
+    """Child lock as a switch mirrors state and handles HomeKit commands."""
+    hass.states.async_set("switch.purifier_lock", "on")
+    entry = await _setup(hass, child_lock="switch.purifier_lock")
+    acc = server(hass, entry.entry_id).accessory
+    services = services_by_type(acc)
+    purifier = services["AirPurifier"][0]
+    fan = services["Fanv2"][0]
+    assert char(purifier, "LockPhysicalControls").value == 1
+    assert char(fan, "LockPhysicalControls").value == 1
+
+    hass.states.async_set("switch.purifier_lock", "off")
+    await hass.async_block_till_done()
+    assert char(purifier, "LockPhysicalControls").value == 0
+    assert char(fan, "LockPhysicalControls").value == 0
+
+    turn_on = async_mock_service(hass, "switch", "turn_on")
+    turn_off = async_mock_service(hass, "switch", "turn_off")
+    acc._set_chars({"LockPhysicalControls": 1})
+    await hass.async_block_till_done()
+    assert turn_on[0].data == {"entity_id": "switch.purifier_lock"}
+
+    acc._set_chars({"LockPhysicalControls": 0})
+    await hass.async_block_till_done()
+    assert turn_off[0].data == {"entity_id": "switch.purifier_lock"}
+
+
+async def test_child_lock_lock_domain(hass: HomeAssistant) -> None:
+    """Child lock as a lock domain entity uses lock/unlock services."""
+    hass.states.async_set("lock.purifier_lock", "locked")
+    entry = await _setup(hass, child_lock="lock.purifier_lock")
+    acc = server(hass, entry.entry_id).accessory
+    services = services_by_type(acc)
+    purifier = services["AirPurifier"][0]
+    assert char(purifier, "LockPhysicalControls").value == 1
+
+    hass.states.async_set("lock.purifier_lock", "unlocked")
+    await hass.async_block_till_done()
+    assert char(purifier, "LockPhysicalControls").value == 0
+
+    lock_svc = async_mock_service(hass, "lock", "lock")
+    unlock_svc = async_mock_service(hass, "lock", "unlock")
+    acc._set_chars({"LockPhysicalControls": 1})
+    await hass.async_block_till_done()
+    assert lock_svc[0].data == {"entity_id": "lock.purifier_lock"}
+
+    acc._set_chars({"LockPhysicalControls": 0})
+    await hass.async_block_till_done()
+    assert unlock_svc[0].data == {"entity_id": "lock.purifier_lock"}
+
+
+def test_detect_child_lock(hass: HomeAssistant) -> None:
+    """Device detection picks up child lock switches."""
+    fan_entry = MagicMock(
+        domain="fan",
+        entity_id="fan.purifier",
+        device_class=None,
+        original_device_class=None,
+    )
+    lock_entry = MagicMock(
+        domain="switch",
+        entity_id="switch.purifier_child_lock",
+        original_name="Child Lock",
+        translation_key="child_lock",
+    )
+    detected = _detect(hass, [fan_entry, lock_entry])
+    assert detected.get(CONF_CHILD_LOCK) == "switch.purifier_child_lock"
