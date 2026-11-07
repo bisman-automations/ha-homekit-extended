@@ -20,7 +20,7 @@
           "buttons": "Event entities become HomeKit buttons with single, double and long press, ready for Home automations.",
           "multi_sensor": "Motion, contact, leak, temperature, humidity, light level and battery from one device as one accessory.",
           "air_quality": "All pollutant readings on one Air Quality sensor, rated by the worst one.",
-          "air_purifier": "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.",
+          "air_purifier": "A fan plus optional air quality, humidity, temperature, filter sensors and child lock as one Air Purifier.",
           "power_strip": "Several switches as the numbered outlets of one accessory.",
           "faucet": "Valves become the outlets of one Shower or Faucet. Turning it on opens them all."
         }
@@ -41,6 +41,7 @@
           "use_controller_timers": "Use the controller's run times and countdown",
           "zone_layout": "Zone layout",
           "fan": "Fan",
+          "child_lock": "Child lock",
           "light": "Light",
           "events": "Buttons",
           "motion_sensor": "Motion",
@@ -86,6 +87,7 @@
           "fan_service": "Also adds a Fan to the purifier in Apple Home. Siri then counts the purifier as a fan, so \"turn off the fan\" in its room turns the purifier off too. Leave this off unless you want fan controls on the purifier.",
           "battery_sensor": "Apple Home warns at 20% or less.",
           "outlets": "Switches or input booleans, in outlet order.",
+          "child_lock": "A switch or lock entity that locks the device's physical buttons.",
           "fan": "Speed, oscillation and direction are added when the fan supports them.",
           "light": "Brightness is added when the light supports it."
         },
@@ -250,7 +252,7 @@
       },
       "air_purifier": {
         "title": "Air purifier",
-        "description": "A fan plus optional air quality, humidity, temperature and filter sensors as one Air Purifier.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
+        "description": "A fan plus optional air quality, humidity, temperature, filter sensors and child lock as one Air Purifier.\n\nPick the device it represents to fill in its entities for you, or leave it empty to choose entities yourself.",
         "data": {
           "name": "Name",
           "device": "Device"
@@ -383,6 +385,7 @@
           "use_controller_timers": "Use the controller's run times and countdown",
           "zone_layout": "Zone layout",
           "fan": "Fan",
+          "child_lock": "Child lock",
           "light": "Light",
           "events": "Buttons",
           "motion_sensor": "Motion",
@@ -428,6 +431,7 @@
           "fan_service": "Also adds a Fan to the purifier in Apple Home. Siri then counts the purifier as a fan, so \"turn off the fan\" in its room turns the purifier off too. Leave this off unless you want fan controls on the purifier.",
           "battery_sensor": "Apple Home warns at 20% or less.",
           "outlets": "Switches or input booleans, in outlet order.",
+          "child_lock": "A switch or lock entity that locks the device's physical buttons.",
           "fan": "Speed, oscillation and direction are added when the fan supports them.",
           "light": "Brightness is added when the light supports it."
         }
