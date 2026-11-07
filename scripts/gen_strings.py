@@ -81,6 +81,7 @@ DATA = {
     "co2_sensor": "Carbon dioxide",
     "air_quality_sensor": "Air quality",
     "filter_life_sensor": "Filter life",
+    "fan_service": "Separate fan control",
     "outlets": "Outlets",
 }
 DESC = {
@@ -100,8 +101,9 @@ DESC = {
     "co2_sensor": "In ppm. Also shown as a Carbon Dioxide sensor that alerts at 1000 ppm.",
     "pm25_sensor": "In µg/m³.",
     "pm10_sensor": "In µg/m³.",
-    "air_quality_sensor": "A HomeKit 1-5 value or an AQI value.",
+    "air_quality_sensor": "A HomeKit 1-5 value (text or numeric) or an AQI value.",
     "filter_life_sensor": "Remaining filter life in %. Apple Home asks for a replacement at 10% or less.",
+    "fan_service": 'Also adds a Fan to the purifier in Apple Home. Siri then counts the purifier as a fan, so "turn off the fan" in its room turns the purifier off too. Leave this off unless you want fan controls on the purifier.',
     "battery_sensor": "Apple Home warns at 20% or less.",
     "outlets": "Switches or input booleans, in outlet order.",
     "child_lock": "A switch or lock entity that locks the device's physical buttons.",

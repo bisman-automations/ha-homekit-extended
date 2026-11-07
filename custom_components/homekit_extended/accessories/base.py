@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 import logging
 import re
@@ -78,6 +78,9 @@ class AccessoryType:
     zones_key: str | None = None
     # Can publish each zone as its own accessory (factory takes aid_for).
     zone_accessories: bool = False
+    # What a setting missing from an older entry meant (a setting added later
+    # whose new default differs). Shown in options and read by the accessory.
+    stored_defaults: Mapping[str, Any] = field(default_factory=dict)
 
 
 INFO_KEYS = (CONF_MANUFACTURER, CONF_MODEL, CONF_SERIAL, CONF_FIRMWARE)

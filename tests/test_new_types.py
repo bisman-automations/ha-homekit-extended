@@ -185,6 +185,24 @@ async def test_air_quality_monitor(hass: HomeAssistant) -> None:
     assert char(air, "AirQuality").value == 0  # unknown
 
 
+async def test_air_quality_monitor_text_aqi(hass: HomeAssistant) -> None:
+    """AQI sensor with text state maps to HomeKit air quality."""
+    hass.states.async_set("sensor.aqi", "Good")
+    entry = await setup_accessory(
+        hass,
+        "air_quality",
+        "AQI Monitor",
+        aqi_sensor="sensor.aqi",
+    )
+    services = services_by_type(server(hass, entry.entry_id).accessory)
+    air = services["AirQualitySensor"][0]
+    assert char(air, "AirQuality").value == 2
+
+    hass.states.async_set("sensor.aqi", "Excellent")
+    await hass.async_block_till_done()
+    assert char(air, "AirQuality").value == 1
+
+
 async def test_power_strip(hass: HomeAssistant) -> None:
     """Each switch becomes a numbered outlet."""
     hass.states.async_set("switch.one", "on", {"friendly_name": "Lamp"})
