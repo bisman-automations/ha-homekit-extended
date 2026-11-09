@@ -3,9 +3,9 @@
 # unpinned on purpose, so CI always tests the newest release.
 pytest-homeassistant-custom-component
 # Lint, pinned so it only changes when Dependabot proposes an update.
-ruff==0.17.2
+ruff==0.17.4
 # Test-only libraries (the integration's runtime requirements are in
 # manifest.json) go below.
-HAP-python>=5.0.0
+HAP-python>=5.1.0
 PyQRCode>=1.2.1
 base36>=0.1.1

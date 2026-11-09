@@ -3,6 +3,6 @@
 # the newest harness release of 2026.8. It needs Python 3.14 (python-min in
 # .github/workflows/test.yml). Raise this together with hacs.json; see CLAUDE.md.
 pytest-homeassistant-custom-component==0.13.357
-HAP-python>=5.0.0
+HAP-python>=5.1.0
 PyQRCode>=1.2.1
 base36>=0.1.1
