@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2026-11-10
+
+### Changed
+
+- **Install from the Marketplace by searching for HomeKit Extended.** Home Assistant 2026.11 renames HACS to the Marketplace, so the install steps start by searching the Marketplace. Searching HACS stays for Home Assistant 2026.10 and older, and adding the repository as a custom repository remains the fallback.
+- **Ruff 0.17.4.** Linting uses the current Ruff release.
+
 ## [3.2.0] - 2026-11-07
 
 ### Added
@@ -404,6 +411,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[3.2.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.0.0...v3.0.1
