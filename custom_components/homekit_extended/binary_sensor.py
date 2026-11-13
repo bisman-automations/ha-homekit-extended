@@ -17,6 +17,9 @@ from . import HomeKitExtendedConfigEntry
 from .accessories.base import LINKED_DEVICES_SUPPORTED, source_connections
 from .const import DOMAIN, MANUFACTURER, SIGNAL_PAIRING_CHANGED, VERSION
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
