@@ -122,13 +122,15 @@ devices, because it shares that device's MAC address. Choose
   device of its entities. For a zone device under a controller (like Rain Bird
   zones), the controller's details are used, and its MAC address stands in for
   a missing serial number. The screen shows what each empty field will use, and
-  changes apply without re-pairing.
+  changes apply without re-pairing. When the device's own details change (a
+  firmware update, for example), Apple Home shows the new ones on its own.
 - **Port and pairing code.** Change the accessory's port and pairing code.
 - **Pairing.** Show the QR code again, or reset pairing so the accessory can
   be added to a different home.
 
 Rename an accessory by renaming its entry. Diagnostics, including the accessory
-exactly as HomeKit sees it, can be downloaded from the entry's menu.
+exactly as HomeKit sees it, can be downloaded from the entry's menu. The pairing
+code, the serial number and the picked device are left out of them.
 
 ## Irrigation System
 
@@ -306,7 +308,7 @@ Home Assistant shows it on the integration card. The source artwork is
 
 ### Diagnostics and debug logs
 
-When something goes wrong, download diagnostics from **Settings → Devices & services → HomeKit Extended → ⋮ → Download diagnostics** and check the file before you share it.
+When something goes wrong, download diagnostics from **Settings → Devices & services → HomeKit Extended → ⋮ → Download diagnostics** and check the file before you share it. The pairing code and serial numbers (often the device's MAC address) are replaced with `**REDACTED**`.
 
 For debug logs, use **Enable debug logging** on the integration page, or add this to `configuration.yaml` and restart:
 

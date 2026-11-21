@@ -8,6 +8,7 @@ steps) and an end-time timestamp sensor.
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -263,6 +264,29 @@ async def test_accessory_info_defaults_to_controller(hass: HomeAssistant) -> Non
     assert info.get_characteristic("Model").value == "ARC8 Garage"
     assert info.get_characteristic("Manufacturer").value == "Rain Bird"
     assert controller
+
+
+async def test_accessory_info_follows_device_updates(hass: HomeAssistant) -> None:
+    """New controller firmware shows in Apple Home without re-publishing."""
+    controller = _rain_bird(hass)
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    accessory = server(hass, entry.entry_id).accessory
+    info = accessory.get_service("AccessoryInformation")
+    assert info.get_characteristic("FirmwareRevision").value == "2.12"
+
+    devices = dr.async_get(hass)
+    devices.async_update_device(controller, sw_version="3.1")
+    await hass.async_block_till_done()
+    assert info.get_characteristic("FirmwareRevision").value == "3.1"
+    assert server(hass, entry.entry_id).accessory is accessory
+
+    # A change that doesn't feed accessory information is ignored.
+    with patch(
+        "custom_components.homekit_extended.accessories.base.source_device_info"
+    ) as read:
+        devices.async_update_device(controller, name_by_user="Garage Sprinklers")
+        await hass.async_block_till_done()
+    read.assert_not_called()
 
 
 RUN_ALL = "button.rain_bird_controller_run_all_zones"

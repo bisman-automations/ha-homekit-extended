@@ -51,6 +51,7 @@ from .base import (
     STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
+    add_handler,
     drop_empty,
     entity_field,
     find_entity,
@@ -307,13 +308,15 @@ class AirPurifierAccessory(HomeAccessory):
             if CHAR_PM10_DENSITY in density_chars:
                 self._pm10 = air.configure_char(CHAR_PM10_DENSITY, value=0)
 
-        handlers = {
-            self.fan: self._update_fan,
-            self.air_quality_sensor: self._update_air_quality,
-            self.data.get(CONF_PM25_SENSOR): self._update_pm25,
-            self.data.get(CONF_PM10_SENSOR): self._update_pm10,
-            self.child_lock: self._update_child_lock,
-        }
+        handlers: dict[str, Any] = {}
+        for entity_id, handler in (
+            (self.fan, self._update_fan),
+            (self.air_quality_sensor, self._update_air_quality),
+            (self.data.get(CONF_PM25_SENSOR), self._update_pm25),
+            (self.data.get(CONF_PM10_SENSOR), self._update_pm10),
+            (self.child_lock, self._update_child_lock),
+        ):
+            add_handler(handlers, entity_id, handler)
         for key, add in (
             (CONF_HUMIDITY_SENSOR, add_humidity_service),
             (CONF_TEMPERATURE_SENSOR, add_temperature_service),
@@ -321,7 +324,7 @@ class AirPurifierAccessory(HomeAccessory):
             if entity_id := self.data.get(key):
                 service, handler = add(self, f"{self.name} {key.split('_')[0].title()}")
                 purifier.add_linked_service(service)
-                handlers[entity_id] = handler
+                add_handler(handlers, entity_id, handler)
 
         self._filter_change = self._filter_life = None
         if entity_id := self.data.get(CONF_FILTER_LIFE_SENSOR):
@@ -335,7 +338,7 @@ class AirPurifierAccessory(HomeAccessory):
                 CHAR_FILTER_CHANGE_INDICATION, value=HK_FILTER_OK
             )
             self._filter_life = filt.configure_char(CHAR_FILTER_LIFE_LEVEL, value=100)
-            handlers[entity_id] = self._update_filter_life
+            add_handler(handlers, entity_id, self._update_filter_life)
 
         self.track(handlers)
 

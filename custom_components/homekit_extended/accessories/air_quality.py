@@ -30,6 +30,7 @@ from .base import (
     STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
+    add_handler,
     drop_empty,
     entity_field,
     find_entity,
@@ -124,19 +125,14 @@ class AirQualityAccessory(HomeAccessory):
         }
         self._levels: dict[str, int] = {}
 
-        handlers: dict[str | None, Any] = {self.aqi_sensor: self._update_aqi}
+        handlers: dict[str, Any] = {}
+        add_handler(handlers, self.aqi_sensor, self._update_aqi)
         for key in configured:
-            handlers[self.data[key]] = self._pollutant_handler(key)
+            add_handler(handlers, self.data[key], self._pollutant_handler(key))
         if co2 := self.data.get(CONF_CO2_SENSOR):
             service, co2_handler = add_co2_service(self, f"{self.name} CO₂")
             air.add_linked_service(service)
-            pollutant_handler = handlers[co2]
-
-            def both(state: State) -> None:
-                co2_handler(state)
-                pollutant_handler(state)
-
-            handlers[co2] = both
+            add_handler(handlers, co2, co2_handler)
         for key, add in (
             (CONF_TEMPERATURE_SENSOR, add_temperature_service),
             (CONF_HUMIDITY_SENSOR, add_humidity_service),
@@ -144,7 +140,7 @@ class AirQualityAccessory(HomeAccessory):
             if entity_id := self.data.get(key):
                 service, handler = add(self, f"{self.name} {key.split('_')[0].title()}")
                 air.add_linked_service(service)
-                handlers[entity_id] = handler
+                add_handler(handlers, entity_id, handler)
         self.track(handlers)
 
     def _pollutant_handler(self, key: str):

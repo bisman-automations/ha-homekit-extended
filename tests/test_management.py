@@ -20,6 +20,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.setup import async_setup_component
 
 from .conftest import PIN, server, setup_accessory
+from .test_controller_links import VALVES, _rain_bird
 
 
 async def test_pairing_notification_and_qr(hass: HomeAssistant, hass_client) -> None:
@@ -72,6 +73,46 @@ async def test_diagnostics_redacts_pin(hass: HomeAssistant) -> None:
     assert diagnostics["port"] == 51828
     assert "bridge" not in diagnostics
     assert "pin" not in server(hass, entry.entry_id).accessory.config
+
+    # A serial number typed in setup is redacted too.
+    typed = await setup_accessory(
+        hass,
+        "power_strip",
+        "Lamp",
+        port=51829,
+        outlets=["switch.b"],
+        serial_number="SN-PRIVATE-1",
+        device="device-id-1",
+    )
+    diagnostics = await async_get_config_entry_diagnostics(hass, typed)
+    assert diagnostics["entry"]["data"]["serial_number"] == "**REDACTED**"
+    assert diagnostics["entry"]["data"]["device"] == "**REDACTED**"
+    assert "SN-PRIVATE-1" not in str(diagnostics)
+    assert "device-id-1" not in str(diagnostics)
+
+
+async def test_diagnostics_redact_device_serial(hass: HomeAssistant) -> None:
+    """The MAC address shown as the serial number never leaves diagnostics."""
+    _rain_bird(hass)
+    entry = await setup_accessory(hass, "irrigation", valves=VALVES)
+    info = server(hass, entry.entry_id).accessory.get_service("AccessoryInformation")
+    assert info.get_characteristic("SerialNumber").value == "AA:BB:CC:DD:EE:01"
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert "AA:BB:CC:DD:EE:01" not in str(diagnostics)
+    assert "**REDACTED**" in str(diagnostics["accessory"])
+
+
+async def test_diagnostics_when_not_loaded(hass: HomeAssistant) -> None:
+    """An entry that isn't running still gives diagnostics instead of an error."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Desk",
+        data={"accessory_type": "power_strip", "port": 51828, "pin": PIN},
+    )
+    entry.add_to_hass(hass)
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["loaded"] is False
+    assert diagnostics["entry"]["data"]["pin"] == "**REDACTED**"
 
 
 async def test_busy_port_retries_setup(hass: HomeAssistant, mock_hap_network) -> None:

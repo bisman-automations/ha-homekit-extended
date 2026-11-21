@@ -75,6 +75,7 @@ from .base import (
     find_entities,
     set_accessory_info,
     source_device_info,
+    source_devices,
 )
 from .zone_links import (
     ControllerLinks,
@@ -727,11 +728,25 @@ class ValveGroupAccessory(HomeAccessory):
 
         self.hass.loop.call_soon_threadsafe(_save)
 
-    def apply_in_place(self, config: dict[str, Any]) -> None:
-        """Apply info, run times and enabled zones without re-publishing."""
-        super().apply_in_place(config)
+    def info_device_ids(self) -> set[str]:
+        """The system's devices and each zone's own."""
+        ids = super().info_device_ids()
+        for entity_id in self.zone_accessories:
+            ids.update(
+                device.id
+                for device in source_devices(self.hass, {CONF_VALVES: [entity_id]})
+            )
+        return ids
+
+    def refresh_info(self, config: dict[str, Any]) -> None:
+        """Write the system's and each zone accessory's information."""
+        super().refresh_info(config)
         for entity_id, zone_accessory in self.zone_accessories.items():
             set_accessory_info(zone_accessory, self.zone_info(entity_id, config))
+
+    def apply_in_place(self, config: dict[str, Any], *, info: bool = True) -> None:
+        """Apply info, run times and enabled zones without re-publishing."""
+        super().apply_in_place(config, info=info)
         run_times = zone_run_times(config, self.valves)
         self.disabled_zones = set(config.get(CONF_DISABLED_ZONES) or [])
         for entity_id, zone in self._zones.items():

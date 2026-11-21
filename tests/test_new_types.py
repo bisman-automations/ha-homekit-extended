@@ -120,6 +120,17 @@ async def test_buttons(hass: HomeAssistant) -> None:
     # Reads between events return null, as HomeKit expects.
     assert char(switches[0], "ProgrammableSwitchEvent").value is None
 
+    # "No Response" only when every button is unavailable; unknown (never
+    # pressed) still counts as there.
+    assert acc.available is True
+    hass.states.async_set("event.top", "unavailable", types)
+    hass.states.async_set("event.bottom", "unavailable", types)
+    await hass.async_block_till_done()
+    assert acc.available is False
+    hass.states.async_set("event.bottom", "unknown", types)
+    await hass.async_block_till_done()
+    assert acc.available is True
+
 
 async def test_multi_sensor(hass: HomeAssistant) -> None:
     """Configured sensors become linked services; battery flags low."""
@@ -149,6 +160,27 @@ async def test_multi_sensor(hass: HomeAssistant) -> None:
     assert char(battery, "BatteryLevel").value == 15
     assert char(battery, "StatusLowBattery").value == 1
     assert "HumiditySensor" not in services
+
+
+async def test_multi_sensor_same_entity_twice(hass: HomeAssistant) -> None:
+    """One entity picked for two sensors keeps both services up to date."""
+    hass.states.async_set("binary_sensor.presence", "off")
+    entry = await setup_accessory(
+        hass,
+        "multi_sensor",
+        "Hallway",
+        motion_sensor="binary_sensor.presence",
+        occupancy_sensor="binary_sensor.presence",
+    )
+    services = services_by_type(server(hass, entry.entry_id).accessory)
+    motion = char(services["MotionSensor"][0], "MotionDetected")
+    occupancy = char(services["OccupancySensor"][0], "OccupancyDetected")
+    assert motion.value is False
+    assert occupancy.value == 0
+    hass.states.async_set("binary_sensor.presence", "on")
+    await hass.async_block_till_done()
+    assert motion.value is True
+    assert occupancy.value == 1
 
 
 async def test_air_quality_monitor(hass: HomeAssistant) -> None:

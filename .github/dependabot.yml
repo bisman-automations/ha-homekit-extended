@@ -8,6 +8,10 @@
 # minimum. aiohttp and pycares are ignored for the same reason: they only
 # appear in requirements_test_min.txt, pinned to what that old Home Assistant
 # needs. Same file in every bisman-automations repo.
+#
+# HAP-python is ignored too (this repo only): Home Assistant core pins it in
+# its homekit integration for each release, so the test floor follows core,
+# not Dependabot.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -29,6 +33,7 @@ updates:
       - dependency-name: "homeassistant"
       - dependency-name: "aiohttp"
       - dependency-name: "pycares"
+      - dependency-name: "HAP-python"
     groups:
       test-tools:
         patterns: ["*"]

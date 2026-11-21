@@ -254,6 +254,9 @@ class ButtonsAccessory(HomeAccessory):
                 self._on_event(state)
 
         if self.events:
+            # Tracked for "No Response": an unknown event (no press yet) still
+            # counts as available; only unavailable ones don't.
+            self._tracked.extend(e for e in self.events if e not in self._tracked)
             self._subscriptions.append(
                 async_track_state_change_event(hass, self.events, _changed)
             )

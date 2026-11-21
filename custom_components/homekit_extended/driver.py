@@ -142,7 +142,7 @@ class HomeKitAccessoryServer:
         Accessory info, run times and enabled zones are just characteristic
         values, so they update live; anything else changes the structure.
         """
-        from .accessories.base import IN_PLACE_KEYS
+        from .accessories.base import IN_PLACE_KEYS, INFO_KEYS
 
         title, config = self._snapshot()
         old_title, old_config = self._published
@@ -156,7 +156,11 @@ class HomeKitAccessoryServer:
             apply = getattr(self.accessory, "apply_in_place", None)
             if apply is None:
                 return False
-            apply(config)
+            # Re-reading the device registry is only needed when an
+            # information setting changed; device-side changes arrive through
+            # each accessory's device registry listener.
+            info = any(config.get(k) != old_config.get(k) for k in INFO_KEYS)
+            apply(config, info=info)
         self._published = (title, config)
         return True
 

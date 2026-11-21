@@ -26,6 +26,7 @@ from .base import (
     STANDALONE_AID,
     AccessoryType,
     HomeAccessory,
+    add_handler,
     drop_empty,
     entity_field,
     find_entity,
@@ -102,7 +103,7 @@ class MultiSensorAccessory(HomeAccessory):
     ) -> None:
         """Initialize the accessory."""
         super().__init__(hass, driver, entry, MULTI_SENSOR.model, aid)
-        handlers = {}
+        handlers: dict[str, Any] = {}
         primary = None
         for key, (_, build, suffix) in SENSORS.items():
             if not (entity_id := self.data.get(key)):
@@ -113,7 +114,7 @@ class MultiSensorAccessory(HomeAccessory):
                 primary = service
             elif primary is not None:
                 primary.add_linked_service(service)
-            handlers[entity_id] = handler
+            add_handler(handlers, entity_id, handler)
         self.track(handlers)
 
 

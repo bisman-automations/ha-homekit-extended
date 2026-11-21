@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-11-21
+
+### Added
+
+- **Device updates show in Apple Home.** When the device an accessory stands for gets new firmware, or its model, manufacturer, serial number or MAC address changes, Apple Home shows the new details within moments. Before, they only updated after a restart or a reload.
+
+### Fixed
+
+- **Remotes show No Response when they're offline.** A Buttons accessory now shows **No Response** in Apple Home when every one of its button entities is unavailable, like the other accessory types. A button that hasn't been pressed yet still counts as there.
+- **One entity in two fields.** When the same entity is picked for two fields (for example as both the motion and the occupancy sensor of a multi-sensor, or of an air purifier or air quality monitor), both services in Apple Home now follow it. Before, one of them stopped updating.
+
+### Changed
+
+- **Diagnostics leave out more private details.** Besides the pairing code, downloaded diagnostics now hide the serial number you typed, the device you picked, and every serial number shown to HomeKit, which is often the device's MAC address. Diagnostics also download for an entry that isn't running, instead of failing.
+- **Less work when you change a run time in Apple Home.** Saving a run time or turning a zone on or off in Apple Home no longer looks up every zone's device details again.
+
 ## [3.2.4] - 2026-11-21
 
 ### Changed
@@ -429,6 +445,7 @@ single `homekit_extended` integration.
 - Irrigation setup no longer breaks when no valve entities exist yet.
 - Clearing an optional air purifier sensor in the options now removes it.
 
+[3.3.0]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.2.4...v3.3.0
 [3.2.4]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.2.3...v3.2.4
 [3.2.3]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.2.2...v3.2.3
 [3.2.2]: https://github.com/bisman-automations/ha-homekit-extended/compare/v3.2.1...v3.2.2

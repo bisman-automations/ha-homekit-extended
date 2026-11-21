@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from datetime import timedelta
 import os
+from unittest.mock import patch
 
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
 )
 
+from custom_components.homekit_extended.accessories import base, valves
 from custom_components.homekit_extended.const import DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -79,10 +81,17 @@ async def test_duration_changed_in_home_is_saved(hass: HomeAssistant) -> None:
     """A run time set in Apple Home is stored and doesn't re-publish."""
     entry = await _setup(hass)
     acc = server(hass, entry.entry_id).accessory
-    acc._set_zone_duration("valve.back", 45)
-    await hass.async_block_till_done()
+    # Only a run time changed: the device registry isn't read again.
+    with (
+        patch.object(base, "source_device_info", wraps=base.source_device_info) as a,
+        patch.object(valves, "source_device_info", wraps=base.source_device_info) as b,
+    ):
+        acc._set_zone_duration("valve.back", 45)
+        await hass.async_block_till_done()
     assert entry.options["run_times"] == {"valve.front": 600, "valve.back": 45}
     assert server(hass, entry.entry_id).accessory is acc
+    assert a.call_count == 0
+    assert b.call_count == 0
 
 
 async def test_external_close_cancels_run(hass: HomeAssistant) -> None:

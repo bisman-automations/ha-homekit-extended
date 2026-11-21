@@ -90,6 +90,19 @@ INFO_CHARS = {
     CONF_SERIAL: "SerialNumber",
     CONF_FIRMWARE: "FirmwareRevision",
 }
+# Device registry fields that feed accessory information (connections give
+# the MAC address used when a device has no serial number).
+INFO_DEVICE_FIELDS = frozenset(
+    {
+        "manufacturer",
+        "model",
+        "serial_number",
+        "sw_version",
+        "hw_version",
+        "connections",
+        "via_device_id",
+    }
+)
 # Options a running accessory applies without re-publishing (they only change
 # characteristic values, never the accessory's structure).
 IN_PLACE_KEYS = frozenset({*INFO_KEYS, "run_times", "disabled_zones"})
@@ -337,6 +350,29 @@ def drop_empty(values: dict[str, Any]) -> dict[str, Any]:
 # Accessory base
 
 
+def add_handler(
+    handlers: dict[Any, Callable[[State], None]],
+    entity_id: str | None,
+    handler: Callable[[State], None],
+) -> None:
+    """Add a state handler, chaining it when the entity already has one.
+
+    The same entity can be picked for two fields (motion and occupancy, say);
+    both services must follow it.
+    """
+    if not entity_id:
+        return
+    if (existing := handlers.get(entity_id)) is None:
+        handlers[entity_id] = handler
+        return
+
+    def both(state: State) -> None:
+        existing(state)
+        handler(state)
+
+    handlers[entity_id] = both
+
+
 def add_named_service(
     accessory: Accessory,
     service_type: str,
@@ -428,9 +464,49 @@ class HomeAccessory(Accessory):
             serial_number=info[CONF_SERIAL],
             firmware_revision=info[CONF_FIRMWARE],
         )
+        self._info_devices: set[str] | None = None
+        self._subscriptions.append(
+            hass.bus.async_listen(
+                dr.EVENT_DEVICE_REGISTRY_UPDATED,
+                self._device_info_changed,
+                event_filter=self._is_info_device_update,
+            )
+        )
 
-    def apply_in_place(self, config: dict[str, Any]) -> None:
-        """Update accessory information without re-publishing."""
+    def info_device_ids(self) -> set[str]:
+        """Devices whose details feed this accessory's information."""
+        return {device.id for device in source_devices(self.hass, self.data)}
+
+    @callback
+    def _is_info_device_update(self, event_data: Mapping[str, Any]) -> bool:
+        """Only an update to a source device's model, firmware, serial or MAC."""
+        if event_data.get("action") != "update":
+            return False
+        if not INFO_DEVICE_FIELDS.intersection(event_data.get("changes") or {}):
+            return False
+        if self._info_devices is None:
+            self._info_devices = self.info_device_ids()
+        return event_data.get("device_id") in self._info_devices
+
+    @callback
+    def _device_info_changed(self, event: Event) -> None:
+        """Show the device's new firmware, model or serial in Apple Home."""
+        if "via_device_id" in (event.data.get("changes") or {}):
+            # The chain of devices changed; work it out again next time.
+            self._info_devices = None
+        self.refresh_info({**self.entry.data, **self.entry.options})
+
+    def apply_in_place(self, config: dict[str, Any], *, info: bool = True) -> None:
+        """Apply option changes without re-publishing.
+
+        info=False skips re-reading the device registry when no accessory
+        information setting changed (a run time changed in Apple Home).
+        """
+        if info:
+            self.refresh_info(config)
+
+    def refresh_info(self, config: dict[str, Any]) -> None:
+        """Write accessory information from the settings and the device."""
         info = accessory_info(
             config,
             self._default_model,
